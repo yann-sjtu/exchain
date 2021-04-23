@@ -84,6 +84,7 @@ func main() {
 		pruningCmd(ctx),
 		compactCmd(ctx),
 		exportAppCmd(ctx),
+		switchChainIDCmd(ctx),
 	)
 
 	// Tendermint node base commands

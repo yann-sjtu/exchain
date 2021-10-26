@@ -57,7 +57,11 @@ func replayCmd(ctx *server.Context) *cobra.Command {
 			}()
 
 			dataDir := viper.GetString(dataDirFlag)
-			replayBlock(ctx, dataDir)
+			originBlockStoreDB, err := openDB(blockStoreDB, dataDir)
+			panicError(err)
+			originBlockStore := store.NewBlockStore(originBlockStoreDB)
+			originLatestBlockHeight := originBlockStore.Height()
+			log.Println("origin latest block height", "height", originLatestBlockHeight)
 			log.Println("--------- replay success ---------")
 		},
 	}

@@ -150,7 +150,7 @@ func (k Keeper) jailValidator(ctx sdk.Context, validator types.Validator) {
 		panic(fmt.Sprintf("cannot jail already jailed validator, validator: %v\n", validator))
 	}
 
-	validator.Jailed = true
+	//validator.Jailed = true
 	k.SetValidator(ctx, validator)
 	k.DeleteValidatorByPowerIndex(ctx, validator)
 }

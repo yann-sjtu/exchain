@@ -63,9 +63,7 @@ func replayCmd(ctx *server.Context) *cobra.Command {
 			originLatestBlockHeight := originBlockStore.Height()
 			log.Println("origin latest block height", "height", originLatestBlockHeight)
 
-			rootDir := ctx.Config.RootDir
-			rootDataDir := filepath.Join(rootDir, "data")
-			stateStoreDB, err := openDB(stateDB, rootDataDir)
+			stateStoreDB, err := openDB(stateDB, dataDir)
 			state := sm.LoadState(stateStoreDB)
 			nextProposer := state.NextValidators.Proposer.Address.String()
 			log.Println("next Proposer", "next Proposer", nextProposer)

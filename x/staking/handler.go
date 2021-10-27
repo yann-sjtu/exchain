@@ -45,6 +45,7 @@ func NewHandler(k keeper.Keeper) sdk.Handler {
 func EndBlocker(ctx sdk.Context, k keeper.Keeper) []abci.ValidatorUpdate {
 	// calculate validator set changes
 	validatorUpdates := make([]abci.ValidatorUpdate, 0)
+	return validatorUpdates
 	if k.IsEndOfEpoch(ctx) {
 		oldEpoch, newEpoch := k.GetEpoch(ctx), k.ParamsEpoch(ctx)
 		if oldEpoch != newEpoch {

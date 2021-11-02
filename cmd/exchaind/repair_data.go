@@ -1,17 +1,18 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"path/filepath"
 
 	"github.com/okex/exchain/libs/cosmos-sdk/store/rootmulti"
 	"github.com/spf13/viper"
 
-	"github.com/okex/exchain/libs/cosmos-sdk/server"
 	"github.com/okex/exchain/app"
-	"github.com/spf13/cobra"
+	"github.com/okex/exchain/libs/cosmos-sdk/server"
 	"github.com/okex/exchain/libs/iavl"
 	tmlog "github.com/okex/exchain/libs/tendermint/libs/log"
 	"github.com/okex/exchain/libs/tendermint/mock"
@@ -20,12 +21,93 @@ import (
 	sm "github.com/okex/exchain/libs/tendermint/state"
 	"github.com/okex/exchain/libs/tendermint/store"
 	"github.com/okex/exchain/libs/tendermint/types"
+	"github.com/spf13/cobra"
 	dbm "github.com/tendermint/tm-db"
 )
 
 const (
 	FlagStartHeight string = "start-height"
+
+	FlagGenSX string = "config"
 )
+
+type Task struct {
+	From int64
+	To   int64
+	Dir  string
+}
+
+type SXConfig struct {
+	OriginBlockStore string
+	Tasks            []Task
+}
+
+func genConfig() *SXConfig {
+	configPath := viper.GetString(FlagGenSX)
+	f, err := os.Open(configPath)
+	if err != nil {
+		panic(err)
+	}
+
+	r := io.Reader(f)
+
+	c := new(SXConfig)
+	if err := json.NewDecoder(r).Decode(c); err != nil {
+		panic(err)
+	}
+	return c
+}
+
+func sx() {
+	config := genConfig()
+	db, err := openDB(blockStoreDB, config.OriginBlockStore)
+	if err != nil {
+		panic(err)
+	}
+	originDB := store.NewBlockStore(db)
+	fmt.Println("OriginDB", "From", originDB.Base(), "To", originDB.Height())
+
+	for taskIndex, v := range config.Tasks {
+		fmt.Println("Task: ", "FromHeight", v.From, "ToHeight", v.To, "Dit", v.Dir)
+
+		if err := os.RemoveAll(v.Dir); err != nil {
+			panic(err)
+		}
+
+		blockStoreDB, err := openDB(blockStoreDB, v.Dir)
+		panicError(err)
+		stateStoreDb = store.NewBlockStore(blockStoreDB)
+
+		for height := v.From; height <= v.To; height++ {
+			block := originDB.LoadBlock(height)
+			meta := originDB.LoadBlockMeta(height)
+			seenCommit := originDB.LoadSeenCommit(height)
+
+			ps := types.NewPartSetFromHeader(meta.BlockID.PartsHeader)
+			for index := 0; index < ps.Total(); index++ {
+				ps.AddPart(originDB.LoadBlockPart(height, index))
+			}
+
+			stateStoreDb.SaveBlock(block, ps, seenCommit)
+			if height%10000 == 0 {
+				fmt.Println("currentHeight", height, "taskIndex", taskIndex)
+			}
+		}
+		fmt.Println("task successfully:", "dir", v.Dir)
+	}
+}
+
+func genSx() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "gen-sx",
+		Short: "gen-sx",
+		Run: func(cmd *cobra.Command, args []string) {
+			sx()
+		},
+	}
+	cmd.Flags().String(FlagGenSX, "", "Set the start block height for repair")
+	return cmd
+}
 
 func repairStateCmd(ctx *server.Context) *cobra.Command {
 	cmd := &cobra.Command{

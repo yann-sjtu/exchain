@@ -1,0 +1,35 @@
+{
+  "OriginBlockStore": "/Users/oker/scf/src/data_blockstore_latest/",
+  "Tasks": [
+    {
+      "From": 4322601,
+      "To": 4422600,
+      "Dir": "/data/sx0"
+    },
+    {
+      "From": 4422601,
+      "To": 4522600,
+      "Dir": "/data/sx1"
+    },
+    {
+      "From": 4522601,
+      "To": 4622600,
+      "Dir": "/data/sx2"
+    },
+    {
+      "From": 4622601,
+      "To": 4722600,
+      "Dir": "/data/sx3"
+    },
+    {
+      "From": 4722601,
+      "To": 4822600,
+      "Dir": "/data/sx4"
+    },
+    {
+      "From": 4822601,
+      "To": 4922600,
+      "Dir": "/data/sx5"
+    }
+  ]
+}

@@ -82,6 +82,7 @@ func main() {
 		client.TestnetCmd(ctx, cdc, app.ModuleBasics, auth.GenesisAccountIterator{}),
 		replayCmd(ctx),
 		repairStateCmd(ctx),
+		genSx(),
 		// AddGenesisAccountCmd allows users to add accounts to the genesis file
 		AddGenesisAccountCmd(ctx, cdc, app.DefaultNodeHome, app.DefaultCLIHome),
 		flags.NewCompletionCmd(rootCmd, true),
@@ -111,7 +112,7 @@ func closeApp(iApp abci.Application) {
 	rpc.CloseEthBackend()
 }
 
-func newApp(logger log.Logger, db dbm.DB, traceStore io.Writer) (abci.Application) {
+func newApp(logger log.Logger, db dbm.DB, traceStore io.Writer) abci.Application {
 	pruningOpts, err := server.GetPruningOptionsFromFlags()
 	if err != nil {
 		panic(err)

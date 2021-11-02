@@ -78,7 +78,7 @@ func sx() {
 		panicError(err)
 		stateStoreDb = store.NewBlockStore(blockStoreDB)
 
-		for height := v.From; height <= v.To; height++ {
+		for height := v.From - 1; height <= v.To+1; height++ {
 			block := originDB.LoadBlock(height)
 			meta := originDB.LoadBlockMeta(height)
 			seenCommit := originDB.LoadSeenCommit(height)

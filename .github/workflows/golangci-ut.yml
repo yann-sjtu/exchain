@@ -24,4 +24,4 @@ jobs:
     - name: Test
       run: go test -v ./libs/...
       env:
-        LEDGER_ENABLED : true
+        LEDGER_ENABLED : false 

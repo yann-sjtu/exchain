@@ -2,7 +2,6 @@ package state
 
 import (
 	"fmt"
-	"runtime/debug"
 	"time"
 
 	abci "github.com/okex/exchain/libs/tendermint/abci/types"
@@ -124,7 +123,6 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 		return nil, nil
 	}
 	fmt.Println("height", height, len(txs))
-	debug.PrintStack()
 	return state.MakeBlock(height, txs, commit, evidence, proposerAddr)
 }
 

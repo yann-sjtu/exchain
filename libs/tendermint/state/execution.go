@@ -105,6 +105,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	proposerAddr []byte,
 ) (*types.Block, *types.PartSet) {
 
+	fmt.Println("CreateProce", height)
 	maxBytes := state.ConsensusParams.Block.MaxBytes
 	maxGas := state.ConsensusParams.Block.MaxGas
 
@@ -119,8 +120,19 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	}
 	txs := blockExec.mempool.ReapMaxBytesMaxGas(maxDataBytes, maxGas)
 	if len(txs) < 3000 && height > 10 {
-		fmt.Println("waiting---", len(txs), height)
-		return nil, nil
+		cnt := 0
+		for true {
+			time.Sleep(1 * time.Second)
+			txs = blockExec.mempool.ReapMaxBytesMaxGas(maxDataBytes, maxGas)
+			if len(txs) >= 3000 {
+				break
+			} else {
+				if cnt > 20 {
+					panic("unexcepted")
+				}
+				cnt++
+			}
+		}
 	}
 	fmt.Println("height", height, len(txs))
 	return state.MakeBlock(height, txs, commit, evidence, proposerAddr)

@@ -84,11 +84,11 @@ sed -i "" 's/max_tx_num_per_block = 300/max_tx_num_per_block = 3000/' $HOME_SERV
 
 
 
-sed -i "" 's/timeout_propose = "3s"/timeout_propose = "3s"/' $HOME_SERVER/config/config.toml 
-sed -i "" 's/timeout_propose_delta = "500ms"/timeout_propose_delta = "3s"/' $HOME_SERVER/config/config.toml 
+sed -i "" 's/timeout_propose = "3s"/timeout_propose = "20s"/' $HOME_SERVER/config/config.toml 
+sed -i "" 's/timeout_propose_delta = "500ms"/timeout_propose_delta = "10s"/' $HOME_SERVER/config/config.toml 
 
-sed -i "" 's/timeout_precommit_delta = "500ms"/timeout_precommit_delta = "5s"/' $HOME_SERVER/config/config.toml 
-sed -i "" 's/timeout_precommit = "1s"/timeout_precommit = "5s"/' $HOME_SERVER/config/config.toml 
+sed -i "" 's/timeout_precommit = "1s"/timeout_precommit = "10s"/' $HOME_SERVER/config/config.toml 
+sed -i "" 's/timeout_precommit_delta = "500ms"/timeout_precommit_delta = "10s"/' $HOME_SERVER/config/config.toml 
 
 sed -i "" 's/timeout_commit = "3s"/timeout_commit = "5s"/' $HOME_SERVER/config/config.toml 
 

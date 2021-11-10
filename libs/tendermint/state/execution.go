@@ -119,7 +119,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 		maxGas = blockExec.mempool.GetConfig().MaxGasUsedPerBlock
 	}
 	txs := blockExec.mempool.ReapMaxBytesMaxGas(maxDataBytes, maxGas)
-	if len(txs) < 3000 && height > 10 {
+	if len(txs) < 3000 && height > 13 {
 		cnt := 0
 		for true {
 			time.Sleep(1 * time.Second)

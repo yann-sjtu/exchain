@@ -431,6 +431,7 @@ func (mem *CListMempool) addAndSortTx(memTx *mempoolTx, info ExTxInfo) error {
 // Called from:
 //  - resCbFirstTime (lock not held) if tx is valid
 func (mem *CListMempool) addTx(memTx *mempoolTx, info ExTxInfo) error {
+	//fmt.Println("ClistMemPool", info.Sender, info.SenderNonce, info.Nonce)
 	if mem.config.SortTxByGp {
 		return mem.addAndSortTx(memTx, info)
 	}
@@ -710,12 +711,13 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 		mem.logger.Info("ReapMaxBytesMaxGas", "ProposingHeight", mem.height+1,
 			"MempoolTxs", mem.txs.Len(), "ReapTxs", len(txs))
 	}()
+	fmt.Println("txLen", mem.txs.Len())
 	for e := mem.txs.Front(); e != nil; e = e.Next() {
 		memTx := e.Value.(*mempoolTx)
 		// Check total size requirement
 		aminoOverhead := types.ComputeAminoOverhead(memTx.tx, 1)
 		if maxBytes > -1 && totalBytes+int64(len(memTx.tx))+aminoOverhead > maxBytes {
-			return txs
+			//return txs
 		}
 		totalBytes += int64(len(memTx.tx)) + aminoOverhead
 		// Check total gas requirement.

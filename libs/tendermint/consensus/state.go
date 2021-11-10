@@ -902,7 +902,7 @@ func (cs *State) enterNewRound(height int64, round int) {
 // needProofBlock returns true on the first height (so the genesis app hash is signed right away)
 // and where the last block (height-1) caused the app hash to change
 func (cs *State) needProofBlock(height int64) bool {
-	if height >= 10 {
+	if height >= 2 {
 		return false
 	}
 	if height == types.GetStartBlockHeight()+1 {

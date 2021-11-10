@@ -6,6 +6,7 @@ import (
 	"github.com/okex/exchain/libs/tendermint/proxy"
 	"github.com/okex/exchain/libs/tendermint/types"
 	dbm "github.com/tendermint/tm-db"
+	"time"
 )
 
 var (
@@ -37,6 +38,7 @@ func execBlockOnProxyAppAsync(
 		return nil, err
 	}
 
+	ts := time.Now()
 	abciResponses.DeliverTxs = proxyAppConn.ParallelTxs(transTxsToBytes(block.Txs))
 	for _, v := range abciResponses.DeliverTxs {
 		if v.Code == abci.CodeTypeOK {
@@ -45,6 +47,7 @@ func execBlockOnProxyAppAsync(
 			invalidTxs++
 		}
 	}
+	ExecTime += time.Now().Sub(ts)
 
 	// End block.
 	abciResponses.EndBlock, err = proxyAppConn.EndBlockSync(abci.RequestEndBlock{Height: block.Height})

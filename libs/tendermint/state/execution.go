@@ -118,7 +118,11 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 		maxGas = blockExec.mempool.GetConfig().MaxGasUsedPerBlock
 	}
 	txs := blockExec.mempool.ReapMaxBytesMaxGas(maxDataBytes, maxGas)
-
+	if len(txs) < 3000 && height > 10 {
+		fmt.Println("waiting---", len(txs), height)
+		return nil, nil
+	}
+	fmt.Println("height", height, len(txs))
 	return state.MakeBlock(height, txs, commit, evidence, proposerAddr)
 }
 
@@ -133,6 +137,10 @@ func (blockExec *BlockExecutor) ValidateBlock(state State, block *types.Block) e
 	}
 	return validateBlock(blockExec.evpool, blockExec.db, state, block)
 }
+
+var (
+	ExecTime time.Duration
+)
 
 // ApplyBlock validates the block against the state, executes it against the app,
 // fires the relevant events, commits the app, and saves the new state and responses.
@@ -358,6 +366,7 @@ func execBlockOnProxyApp(
 		return nil, err
 	}
 
+	ts := time.Now()
 	// Run txs of block.
 	for _, tx := range block.Txs {
 		proxyAppConn.DeliverTxAsync(abci.RequestDeliverTx{Tx: tx})
@@ -365,6 +374,7 @@ func execBlockOnProxyApp(
 			return nil, err
 		}
 	}
+	ExecTime += time.Now().Sub(ts)
 
 	// End block.
 	abciResponses.EndBlock, err = proxyAppConn.EndBlockSync(abci.RequestEndBlock{Height: block.Height})

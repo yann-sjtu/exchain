@@ -23,7 +23,7 @@ killbyname() {
 run() {
     LOG_LEVEL=main:info,*:error
 
-    exchaind start --pruning=nothing --rpc.unsafe \
+    exchaind start --pruning=nothing  --mempool.enable_pending_pool=true --rpc.unsafe --paralleled-tx \
       --local-rpc-port 26657 \
       --consensus.timeout_commit 600ms \
       --iavl-enable-async-commit \
@@ -55,8 +55,7 @@ exchaincli config trust-node true
 exchaincli config keyring-backend test
 
 #    "eth_address": "0xbbE4733d85bc2b90682147779DA49caB38C0aA1F",
-#exchaincli keys add --recover captain -m "puzzle glide follow cruel say burst deliver wild tragic galaxy lumber offer" -y
-exchaincli keys add --recover captain -m "actual assume crew creek furnace water electric fitness stumble usage embark ancient" -y
+exchaincli keys add --recover captain -m "puzzle glide follow cruel say burst deliver wild tragic galaxy lumber offer" -y
 
 #    "eth_address": "0x83D83497431C2D3FEab296a9fba4e5FaDD2f7eD0",
 exchaincli keys add --recover admin16 -m "palace cube bitter light woman side pave cereal donor bronze twice work" -y
@@ -78,7 +77,17 @@ sed -i "" 's/"enable_create": false/"enable_create": true/' $HOME_SERVER/config/
 
 # scf
 
+
 sed -i "" 's/create_empty_blocks = true/create_empty_blocks = false/' $HOME_SERVER/config/config.toml 
+sed -i "" 's/size = 2000/size = 200000/' $HOME_SERVER/config/config.toml 
+sed -i "" 's/max_tx_num_per_block = 300/max_tx_num_per_block = 3000/' $HOME_SERVER/config/config.toml 
+
+sed -i "" 's/timeout_propose = "3s"/timeout_propose = "10s"/' $HOME_SERVER/config/config.toml 
+sed -i "" 's/timeout_commit = "3s"/timeout_commit = "10s"/' $HOME_SERVER/config/config.toml 
+sed -i "" 's/timeout_precommit = "1s"/timeout_precommit = "10s"/' $HOME_SERVER/config/config.toml 
+
+
+
 
 
 # Allocate genesis accounts (cosmos formatted addresses)

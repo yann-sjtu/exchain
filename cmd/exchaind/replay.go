@@ -298,7 +298,7 @@ func doReplay(ctx *server.Context, state sm.State, stateStoreDB dbm.DB,
 			sm.ExecTime = 0
 		}
 	}
-	fmt.Println("AllTs", time.Now().Sub(ts).Seconds())
+	fmt.Println("AllTs", time.Now().Sub(ts).Seconds(), "lastexecute", sm.ExecTime.Seconds())
 }
 
 func startDumpPprof() {

@@ -262,6 +262,25 @@ func doReplay(ctx *server.Context, state sm.State, stateStoreDB dbm.DB,
 		defer stopDumpPprof()
 	}
 	needSaveBlock := viper.GetBool(saveBlock) || viper.GetBool(sm.FlagParalleledTx)
+
+	flag := map[int]bool{
+		20: true,
+
+		220: true,
+		420: true,
+		620: true,
+		820: true,
+
+		1020: true,
+		1220: true,
+		1420: true,
+		1620: true,
+
+		1820: true,
+		2020: true,
+		2220: true,
+		2420: true,
+	}
 	ts := time.Now()
 	for height := lastBlockHeight + 1; height <= haltheight; height++ {
 		log.Println("replaying ", height)
@@ -273,8 +292,13 @@ func doReplay(ctx *server.Context, state sm.State, stateStoreDB dbm.DB,
 		if needSaveBlock {
 			SaveBlock(ctx, originBlockStore, height)
 		}
+
+		if flag[int(height)] {
+			fmt.Println("batchExecTime", sm.ExecTime.Seconds())
+			sm.ExecTime = 0
+		}
 	}
-	fmt.Println("AllTs:", time.Now().Sub(ts).Seconds(), "RunTx:", sm.ExecTime.Seconds())
+	fmt.Println("AllTs", time.Now().Sub(ts).Seconds())
 }
 
 func startDumpPprof() {

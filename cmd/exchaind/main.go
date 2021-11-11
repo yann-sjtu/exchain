@@ -28,7 +28,6 @@ import (
 
 	"github.com/okex/exchain/app"
 	"github.com/okex/exchain/app/codec"
-	appconfig "github.com/okex/exchain/app/config"
 	"github.com/okex/exchain/app/crypto/ethsecp256k1"
 	okexchain "github.com/okex/exchain/app/types"
 	"github.com/okex/exchain/cmd/client"
@@ -66,7 +65,7 @@ func main() {
 	rootCmd := &cobra.Command{
 		Use:               "exchaind",
 		Short:             "ExChain App Daemon (server)",
-		PersistentPreRunE: server.PersistentPreRunEFn(ctx, appconfig.RegisterDynamicConfig),
+		PersistentPreRunE: server.PersistentPreRunEFn(ctx),
 	}
 	// CLI commands to initialize the chain
 	rootCmd.AddCommand(
@@ -92,7 +91,8 @@ func main() {
 	)
 
 	// Tendermint node base commands
-	server.AddCommands(ctx, cdc, rootCmd, newApp, closeApp, exportAppStateAndTMValidators, registerRoutes, client.RegisterAppFlag)
+	server.AddCommands(ctx, cdc, rootCmd, newApp, closeApp, exportAppStateAndTMValidators,
+		registerRoutes, client.RegisterAppFlag, app.PreRun)
 
 	rootCmd.PersistentFlags().StringSlice("test.monitored_validators", []string{}, "the list of validators, used for monitoring to test")
 	rootCmd.PersistentFlags().Float64("test.init_totoal_fee", 0, "")
@@ -117,7 +117,7 @@ func closeApp(iApp abci.Application) {
 	rpc.CloseEthBackend()
 }
 
-func newApp(logger log.Logger, db dbm.DB, traceStore io.Writer) (abci.Application) {
+func newApp(logger log.Logger, db dbm.DB, traceStore io.Writer) abci.Application {
 	pruningOpts, err := server.GetPruningOptionsFromFlags()
 	if err != nil {
 		panic(err)

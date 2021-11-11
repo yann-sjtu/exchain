@@ -3,11 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+
 	"github.com/okex/exchain/app/rpc"
 	evmtypes "github.com/okex/exchain/x/evm/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"io"
 
 	abci "github.com/okex/exchain/libs/tendermint/abci/types"
 	tmamino "github.com/okex/exchain/libs/tendermint/crypto/encoding/amino"
@@ -93,6 +94,11 @@ func main() {
 	// Tendermint node base commands
 	server.AddCommands(ctx, cdc, rootCmd, newApp, closeApp, exportAppStateAndTMValidators, registerRoutes, client.RegisterAppFlag)
 
+	rootCmd.PersistentFlags().StringSlice("test.monitored_validators", []string{}, "the list of validators, used for monitoring to test")
+	rootCmd.PersistentFlags().Float64("test.init_totoal_fee", 0, "")
+	rootCmd.PersistentFlags().Float64("test.init_control_fee", 0, "")
+	rootCmd.PersistentFlags().Float64("test.init_other_fee", 0, "")
+	rootCmd.PersistentFlags().Float64("test.init_community_fee", 0, "")
 	// prepare and add flags
 	executor := cli.PrepareBaseCmd(rootCmd, "OKEXCHAIN", app.DefaultNodeHome)
 	rootCmd.PersistentFlags().UintVar(&invCheckPeriod, flagInvCheckPeriod,

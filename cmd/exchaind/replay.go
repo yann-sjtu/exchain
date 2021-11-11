@@ -261,7 +261,7 @@ func doReplay(ctx *server.Context, state sm.State, stateStoreDB dbm.DB,
 		startDumpPprof()
 		defer stopDumpPprof()
 	}
-	needSaveBlock := viper.GetBool(saveBlock) || viper.GetBool(sm.FlagParalleledTx)
+	needSaveBlock := viper.GetBool(saveBlock)
 
 	flag := map[int]bool{
 		20: true,

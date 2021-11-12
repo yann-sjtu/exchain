@@ -215,8 +215,9 @@ func (st StateTransition) TransitionDb(ctx sdk.Context, config ChainConfig) (exe
 		// Increment the nonce for the next transaction	(just for evm state transition)
 		csdb.SetNonce(st.Sender, csdb.GetNonce(st.Sender)+1)
 		StartTxLog(analyzer.EVMCORE)
-		defer StopTxLog(analyzer.EVMCORE)
+		// defer StopTxLog(analyzer.EVMCORE)
 		ret, leftOverGas, err = evm.Call(senderRef, *st.Recipient, st.Payload, gasLimit, st.Amount)
+		StopTxLog(analyzer.EVMCORE)
 
 		recipientLog = fmt.Sprintf("recipient address %s", st.Recipient.String())
 

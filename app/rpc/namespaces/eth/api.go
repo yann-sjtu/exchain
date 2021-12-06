@@ -1236,11 +1236,19 @@ func (api *PublicEthereumAPI) GetTransactionReceiptsByBlock(blockNrOrHash rpctyp
 		return nil, errors.New("the method is not allowed")
 	}
 
+	reqID := time.Now().UnixMicro()
 	monitor := monitor.GetMonitor("eth_getTransactionReceiptsByBlock", api.logger, api.Metrics).OnBegin()
 	defer monitor.OnEnd("block number", blockNrOrHash, "offset", offset, "limit", limit)
 
+	blockNum, err := api.backend.ConvertToBlockNumber(blockNrOrHash)
+	if err != nil {
+		return nil, err
+	}
+	api.logger.Error("Request param", "blockNum", blockNum.Int64(), "offset", uint64(offset), "limit", uint64(limit))
+
 	txs, err := api.GetTransactionsByBlock(blockNrOrHash, offset, limit)
 	if err != nil || len(txs) == 0 {
+		api.logger.Error("GetTransactionsByBlock nil or error", "reqID", reqID, "txs", len(txs), "err", err)
 		return nil, err
 	}
 
@@ -1254,29 +1262,33 @@ func (api *PublicEthereumAPI) GetTransactionReceiptsByBlock(blockNrOrHash rpctyp
 			continue
 		}
 
-		tx, err := api.clientCtx.Client.Tx(tx.Hash.Bytes(), false)
+		ResTx, err := api.clientCtx.Client.Tx(tx.Hash.Bytes(), false)
 		if err != nil {
+			api.logger.Error("api.clientCtx.Client.Tx error", "reqID", reqID, "err", err)
 			// Return nil for transaction when not found
-			return nil, nil
+			return nil, err
 		}
 
 		if block == nil {
 			// Query block for consensus hash
-			block, err = api.clientCtx.Client.Block(&tx.Height)
+			block, err = api.clientCtx.Client.Block(&ResTx.Height)
 			if err != nil {
+				api.logger.Error("api.clientCtx.Client.Block error", "reqID", reqID, "err", err)
 				return nil, err
 			}
 			blockHash = common.BytesToHash(block.Block.Hash())
 		}
 
 		// Convert tx bytes to eth transaction
-		ethTx, err := rpctypes.RawTxToEthTx(api.clientCtx, tx.Tx)
+		ethTx, err := rpctypes.RawTxToEthTx(api.clientCtx, ResTx.Tx)
 		if err != nil {
+			api.logger.Error("rpctypes.RawTxToEthTx error", "reqID", reqID, "err", err)
 			return nil, err
 		}
 
-		fromSigCache, err := ethTx.VerifySig(ethTx.ChainID(), tx.Height, sdk.EmptyContext().SigCache())
+		fromSigCache, err := ethTx.VerifySig(ethTx.ChainID(), ResTx.Height, sdk.EmptyContext().SigCache())
 		if err != nil {
+			api.logger.Error("ethTx.VerifySig error", "reqID", reqID, "err", err)
 			return nil, err
 		}
 
@@ -1288,11 +1300,11 @@ func (api *PublicEthereumAPI) GetTransactionReceiptsByBlock(blockNrOrHash rpctyp
 
 		// Set status codes based on tx result
 		var status = hexutil.Uint64(0)
-		if tx.TxResult.IsOK() {
+		if ResTx.TxResult.IsOK() {
 			status = hexutil.Uint64(1)
 		}
 
-		txData := tx.TxResult.GetData()
+		txData := ResTx.TxResult.GetData()
 		data, err := evmtypes.DecodeResultData(txData)
 		if err != nil {
 			status = 0 // transaction failed
@@ -1307,8 +1319,8 @@ func (api *PublicEthereumAPI) GetTransactionReceiptsByBlock(blockNrOrHash rpctyp
 		}
 
 		// fix gasUsed when deliverTx ante handler check sequence invalid
-		gasUsed := tx.TxResult.GasUsed
-		if tx.TxResult.Code == sdkerrors.ErrInvalidSequence.ABCICode() {
+		gasUsed := ResTx.TxResult.GasUsed
+		if ResTx.TxResult.Code == sdkerrors.ErrInvalidSequence.ABCICode() {
 			gasUsed = 0
 		}
 
@@ -1321,8 +1333,8 @@ func (api *PublicEthereumAPI) GetTransactionReceiptsByBlock(blockNrOrHash rpctyp
 			ContractAddress:  contractAddr,
 			GasUsed:          hexutil.Uint64(gasUsed),
 			BlockHash:        blockHash.String(),
-			BlockNumber:      hexutil.Uint64(tx.Height),
-			TransactionIndex: hexutil.Uint64(tx.Index),
+			BlockNumber:      hexutil.Uint64(ResTx.Height),
+			TransactionIndex: hexutil.Uint64(ResTx.Index),
 			From:             from.String(),
 			To:               ethTx.To(),
 		}

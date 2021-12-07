@@ -15,8 +15,8 @@ var (
 	once         sync.Once
 	CUSTOM_PRINT = []string{trace.Evm, trace.Iavl, trace.DeliverTxs, trace.Round, trace.CommitRound, trace.Produce, trace.PPRun}
 
-	DefaultElapsedSchemas = fmt.Sprintf("%s=1,%s=1,%s=1,%s=0,%s=0,%s=0",
-		trace.Evm, trace.Iavl, trace.DeliverTxs, trace.Round, trace.CommitRound, trace.Produce)
+	DefaultElapsedSchemas = fmt.Sprintf("%s=1,%s=1,%s=1,%s=0,%s=0,%s=0,%s=1",
+		trace.Evm, trace.Iavl, trace.DeliverTxs, trace.Round, trace.CommitRound, trace.Produce, trace.PPRun)
 )
 
 const (

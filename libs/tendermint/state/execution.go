@@ -220,6 +220,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	if err != nil {
 		return state, 0, fmt.Errorf("commit failed for application: %v", err)
 	}
+	blockExec.logger.Error("yls commit block", "height", block.Height, "time", time.Now().UnixNano())
 
 	// Update evpool with the block and state.
 	blockExec.evpool.Update(block, state)
@@ -533,13 +534,15 @@ func fireEvents(
 		ResultBeginBlock: *abciResponses.BeginBlock,
 		ResultEndBlock:   *abciResponses.EndBlock,
 	})
+	logger.Error("yls Publish EventNewBlockHeader start", "height", block.Height, "time", time.Now().UnixNano())
 	eventBus.PublishEventNewBlockHeader(types.EventDataNewBlockHeader{
 		Header:           block.Header,
 		NumTxs:           int64(len(block.Txs)),
 		ResultBeginBlock: *abciResponses.BeginBlock,
 		ResultEndBlock:   *abciResponses.EndBlock,
 	})
-
+	logger.Error("yls Publish EventNewBlockHeader end", "height", block.Height, "time", time.Now().UnixNano())
+	logger.Error("yls Publish EventTx start", "height", block.Height, "time", time.Now().UnixNano(), "txs", len(block.Txs))
 	for i, tx := range block.Data.Txs {
 		eventBus.PublishEventTx(types.EventDataTx{TxResult: types.TxResult{
 			Height: block.Height,
@@ -548,7 +551,7 @@ func fireEvents(
 			Result: *(abciResponses.DeliverTxs[i]),
 		}})
 	}
-
+	logger.Error("yls Publish EventTx end", "height", block.Height, "time", time.Now().UnixNano(), "txs", len(block.Txs))
 	if len(validatorUpdates) > 0 {
 		eventBus.PublishEventValidatorSetUpdates(
 			types.EventDataValidatorSetUpdates{ValidatorUpdates: validatorUpdates})

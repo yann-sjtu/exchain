@@ -2,6 +2,7 @@ package txindex
 
 import (
 	"context"
+	"time"
 
 	"github.com/okex/exchain/libs/tendermint/libs/service"
 
@@ -53,7 +54,9 @@ func (is *IndexerService) OnStart() error {
 			msg := <-blockHeadersSub.Out()
 			eventDataHeader := msg.Data().(types.EventDataNewBlockHeader)
 			height := eventDataHeader.Header.Height
+			is.Logger.Error("yls receive EventDataNewBlockHeader", "height", height, "time", time.Now().UnixNano())
 			batch := NewBatch(eventDataHeader.NumTxs)
+			is.Logger.Error("yls receive EventDataTx start", "height", height, "time", time.Now().UnixNano(), "txs", eventDataHeader.NumTxs)
 			for i := int64(0); i < eventDataHeader.NumTxs; i++ {
 				msg2 := <-txsSub.Out()
 				txResult := msg2.Data().(types.EventDataTx).TxResult
@@ -64,11 +67,13 @@ func (is *IndexerService) OnStart() error {
 						"err", err)
 				}
 			}
+			is.Logger.Error("yls receive EventDataTx end", "height", height, "time", time.Now().UnixNano(), "txs", eventDataHeader.NumTxs)
 			if err = is.idr.AddBatch(batch); err != nil {
 				is.Logger.Error("Failed to index block", "height", height, "err", err)
 			} else {
 				is.Logger.Info("Indexed block", "height", height)
 			}
+			is.Logger.Error("yls AddBatch end", "height", height, "time", time.Now().UnixNano(), "txs", eventDataHeader.NumTxs)
 		}
 	}()
 	return nil

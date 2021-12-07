@@ -19,7 +19,7 @@ const (
 	Evm         = "Evm"
 	Iavl        = "Iavl"
 	DeliverTxs  = "DeliverTxs"
-
+	PPRun       = "PPRun"
 
 	Abci       = "abci"
 	InvalidTxs = "InvalidTxs"
@@ -56,7 +56,7 @@ func GetElapsedInfo() IElapsedTimeInfos {
 func NewTracer(name string) *Tracer {
 	t := &Tracer{
 		startTime: time.Now().UnixNano(),
-		name: name,
+		name:      name,
 	}
 	return t
 }

@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"runtime/debug"
 	"strings"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/okex/exchain/libs/cosmos-sdk/store"
@@ -55,6 +56,20 @@ var (
 	mempoolEnableRecheck     = true
 	mempoolEnablePendingPool = false
 )
+
+var timeOfSerial = int64(0)
+
+func AddTimeOfSerial(d int64) {
+	timeOfSerial += d
+}
+
+func ResetTimeOfSerial() {
+	timeOfSerial = 0
+}
+
+func GetTimeOfSerial() int64 {
+	return timeOfSerial
+}
 
 func GetGlobalMempool() mempool.Mempool {
 	return globalMempool
@@ -162,6 +177,15 @@ type BaseApp struct { // nolint: maligned
 	endLog recordHandle
 
 	parallelTxManage *parallelTxManager
+
+	timeOfParallel int64
+	timeOfSerial   int64
+
+	TotalParallelTime int64
+	TotalSerialTime   int64
+
+	startOfParallel int64
+	startOfSerial   int64
 }
 
 type recordHandle func(string)
@@ -682,6 +706,41 @@ func (app *BaseApp) pin(tag string, start bool, mode runTxMode) {
 	}
 }
 
+func getNowTimeMs() int64 {
+	return time.Now().UnixNano() / 1e6
+}
+
+func (app *BaseApp) pinAction(isParallel bool, isStart bool, mode runTxMode) {
+	if mode != runTxModeDeliver {
+		return
+	}
+	if isParallel {
+		if isStart {
+			app.startOfParallel = getNowTimeMs()
+		} else {
+			if app.startOfParallel > 0 {
+				app.timeOfParallel += getNowTimeMs() - app.startOfParallel
+			}
+		}
+	} else {
+		if isStart {
+			app.startOfSerial = getNowTimeMs()
+		} else {
+			if app.startOfSerial < 0 {
+				app.timeOfSerial += getNowTimeMs() - app.startOfSerial
+			}
+		}
+	}
+}
+
+func (app *BaseApp) resetTime() {
+	app.startOfSerial = 0
+	app.timeOfParallel = 0
+	app.timeOfParallel = 0
+	app.startOfParallel = 0
+	ResetTimeOfSerial()
+}
+
 // runTx processes a transaction within a given execution mode, encoded transaction
 // bytes, and the decoded transaction itself. All state transitions occur through
 // a cached Context depending on the mode provided. State only gets persisted
@@ -692,6 +751,7 @@ func (app *BaseApp) pin(tag string, start bool, mode runTxMode) {
 func (app *BaseApp) runTx(mode runTxMode, txBytes []byte, tx sdk.Tx, height int64) (gInfo sdk.GasInfo, result *sdk.Result, msCacheList sdk.CacheMultiStore, err error) {
 
 	app.pin(InitCtx, true, mode)
+	app.pinAction(true, true, mode)
 
 	// NOTE: GasWanted should be returned by the AnteHandler. GasUsed is
 	// determined by the GasMeter. We need access to the context to get the gas
@@ -853,6 +913,7 @@ func (app *BaseApp) runTx(mode runTxMode, txBytes []byte, tx sdk.Tx, height int6
 		}
 
 		if err != nil {
+			app.pinAction(true, false, mode)
 			return gInfo, nil, nil, err
 		}
 
@@ -879,6 +940,10 @@ func (app *BaseApp) runTx(mode runTxMode, txBytes []byte, tx sdk.Tx, height int6
 	// and we're in DeliverTx. Note, runMsgs will never return a reference to a
 	// Result if any single message fails or does not have a registered Handler.
 
+	defer func() {
+		app.pinAction(true, false, mode)
+		app.pinAction(false, false, mode)
+	}()
 	result, err = app.runMsgs(runMsgCtx, msgs, mode)
 	if err == nil && (mode == runTxModeDeliver) {
 		msCache.Write()
@@ -938,6 +1003,7 @@ func (app *BaseApp) runMsgs(ctx sdk.Context, msgs []sdk.Msg, mode runTxMode) (*s
 		}
 
 		msgResult, err := handler(ctx, msg)
+		app.pinAction(false, true, mode)
 		if err != nil {
 			return nil, sdkerrors.Wrapf(err, "failed to execute message; message index: %d", i)
 		}
@@ -1027,9 +1093,8 @@ func (app *BaseApp) GetTxHistoryGasUsed(rawTx tmtypes.Tx) int64 {
 
 	if toDeployContractSize > 0 {
 		// if deploy contract case, the history gas used value is unit gas used
-		return int64(binary.BigEndian.Uint64(data)) * int64(toDeployContractSize) + int64(1000)
+		return int64(binary.BigEndian.Uint64(data))*int64(toDeployContractSize) + int64(1000)
 	}
 
 	return int64(binary.BigEndian.Uint64(data))
 }
-

@@ -206,7 +206,13 @@ func handleMsgEthereumTx(ctx sdk.Context, k *Keeper, msg types.MsgEthereumTx) (*
 	}()
 
 	StartTxLog(bam.TransitionDb)
+	defer func() {
+		if !ctx.IsCheckTx() {
+			bam.AddTimeOfSerial(st.Csdb.GetSerialRunTime())
+		}
+	}()
 	executionResult, resultData, err, innerTxs, erc20s := st.TransitionDb(ctx, config)
+
 	if ctx.IsAsync() {
 		k.LogsManages.Set(string(ctx.TxBytes()), keeper.TxResult{
 			ResultData: resultData,

@@ -148,6 +148,7 @@ func (app *BaseApp) BeginBlock(req abci.RequestBeginBlock) (res abci.ResponseBeg
 
 	// set the signed validators for addition to context in deliverTx
 	app.voteInfos = req.LastCommitInfo.GetVotes()
+	app.resetTime()
 	return res
 }
 
@@ -160,6 +161,13 @@ func (app *BaseApp) EndBlock(req abci.RequestEndBlock) (res abci.ResponseEndBloc
 	if app.endBlocker != nil {
 		res = app.endBlocker(app.deliverState.ctx, req)
 	}
+	serialRun := GetTimeOfSerial() + app.timeOfSerial
+	parallelRun := app.timeOfParallel - serialRun
+
+	app.TotalParallelTime += parallelRun
+	app.TotalSerialTime += serialRun
+
+	trace.GetElapsedInfo().AddInfo(trace.PPRun, fmt.Sprintf("Serial Run<%dms>, Parallel Run<%dms>,Total[Serial<%dms>,Parallel<%dms>]", serialRun, parallelRun, app.TotalSerialTime, app.TotalParallelTime))
 
 	return
 }

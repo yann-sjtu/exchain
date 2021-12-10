@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/tendermint/go-amino"
 
@@ -156,8 +157,16 @@ func (coin DecCoin) IsValid() bool {
 	return !coin.IsNegative()
 }
 
+var decCoinBufferPool = &sync.Pool{
+	New: func() interface{} {
+		return &bytes.Buffer{}
+	},
+}
+
 func (coin DecCoin) MarshalToAmino() ([]byte, error) {
-	var buf bytes.Buffer
+	var buf = decCoinBufferPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer decCoinBufferPool.Put(buf)
 	for pos := 1; pos < 3; pos++ {
 		lBeforeKey := buf.Len()
 		var noWrite bool
@@ -176,7 +185,7 @@ func (coin DecCoin) MarshalToAmino() ([]byte, error) {
 				noWrite = true
 				break
 			}
-			err := amino.EncodeUvarintToBuffer(&buf, uint64(len(coin.Denom)))
+			err := amino.EncodeUvarintToBuffer(buf, uint64(len(coin.Denom)))
 			if err != nil {
 				return nil, err
 			}
@@ -189,7 +198,7 @@ func (coin DecCoin) MarshalToAmino() ([]byte, error) {
 			if err != nil {
 				return nil, err
 			}
-			err = amino.EncodeUvarintToBuffer(&buf, uint64(len(data)))
+			err = amino.EncodeUvarintToBuffer(buf, uint64(len(data)))
 			if err != nil {
 				return nil, err
 			}
@@ -204,7 +213,7 @@ func (coin DecCoin) MarshalToAmino() ([]byte, error) {
 			buf.Truncate(lBeforeKey)
 		}
 	}
-	return buf.Bytes(), nil
+	return amino.GetBytesBufferCopy(buf), nil
 }
 
 // ----------------------------------------------------------------------------

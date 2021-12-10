@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/tendermint/go-amino"
 
@@ -37,8 +38,16 @@ type EthAccount struct {
 	CodeHash               []byte `json:"code_hash" yaml:"code_hash"`
 }
 
+var ethAccountBufferPool = &sync.Pool{
+	New: func() interface{} {
+		return &bytes.Buffer{}
+	},
+}
+
 func (acc EthAccount) MarshalToAmino() ([]byte, error) {
-	var buf bytes.Buffer
+	var buf = ethAccountBufferPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer ethAccountBufferPool.Put(buf)
 	for pos := 1; pos < 3; pos++ {
 		lBeforeKey := buf.Len()
 		var noWrite bool
@@ -61,7 +70,7 @@ func (acc EthAccount) MarshalToAmino() ([]byte, error) {
 			if err != nil {
 				return nil, err
 			}
-			err = amino.EncodeUvarintToBuffer(&buf, uint64(len(data)))
+			err = amino.EncodeUvarintToBuffer(buf, uint64(len(data)))
 			if err != nil {
 				return nil, err
 			}
@@ -75,7 +84,7 @@ func (acc EthAccount) MarshalToAmino() ([]byte, error) {
 				noWrite = true
 				break
 			}
-			err := amino.EncodeUvarintToBuffer(&buf, uint64(codeHashLen))
+			err := amino.EncodeUvarintToBuffer(buf, uint64(codeHashLen))
 			if err != nil {
 				return nil, err
 			}
@@ -90,7 +99,7 @@ func (acc EthAccount) MarshalToAmino() ([]byte, error) {
 			buf.Truncate(lBeforeKey)
 		}
 	}
-	return buf.Bytes(), nil
+	return amino.GetBytesBufferCopy(buf), nil
 }
 
 // ProtoAccount defines the prototype function for BaseAccount used for an

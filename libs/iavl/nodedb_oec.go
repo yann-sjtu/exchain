@@ -5,6 +5,7 @@ import (
 	"container/list"
 	"encoding/hex"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -99,15 +100,29 @@ func (ndb *nodeDB) saveNodeToPrePersistCache(node *Node) {
 	ndb.prePersistNodeCache[string(node.hash)] = node
 }
 
+type nodeBytes struct {
+	node  *Node
+	key   []byte
+	value []byte
+}
+
 func (ndb *nodeDB) persistTpp(event *commitEvent, trc *trace.Tracer) {
 
 	batch := event.batch
 	tpp := event.tpp
 
 	trc.Pin("batchSet")
+	ch := make(chan nodeBytes, 64)
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go ndb.batchToSet(ch, batch, wg)
+
 	for _, node := range tpp {
-		ndb.batchSet(node, batch)
+		ndb.batchSetPre(node, ch)
 	}
+	ch <- nodeBytes{}
+	wg.Wait()
+	close(ch)
 	atomic.AddInt64(&ndb.totalPersistedCount, int64(len(tpp)))
 	ndb.addDBWriteCount(int64(len(tpp)))
 
@@ -197,6 +212,45 @@ func (ndb *nodeDB) batchSet(node *Node, batch dbm.Batch) {
 	atomic.AddInt64(&ndb.totalPersistedSize, int64(len(nodeKey)+len(nodeValue)))
 	ndb.log(IavlDebug, "BATCH SAVE %X %p", node.hash, node)
 	//node.persisted = true // move to function MovePrePersistCacheToTempCache
+}
+
+// SaveNode saves a node to disk.
+func (ndb *nodeDB) batchSetPre(node *Node, c chan<- nodeBytes) {
+	if node.hash == nil {
+		panic("Expected to find node.hash, but none found.")
+	}
+	if !node.persisted {
+		panic("Should set node.persisted to true before batchSet.")
+	}
+
+	if !node.prePersisted {
+		panic("Should be calling save on an prePersisted node.")
+	}
+
+	// Save node bytes to db.
+	var buf bytes.Buffer
+	buf.Grow(node.aminoSize())
+
+	if err := node.writeBytes(&buf); err != nil {
+		panic(err)
+	}
+
+	nodeKey := ndb.nodeKey(node.hash)
+	nodeValue := buf.Bytes()
+
+	c <- nodeBytes{node, nodeKey, nodeValue}
+}
+
+func (ndb *nodeDB) batchToSet(c <-chan nodeBytes, b dbm.Batch, wg *sync.WaitGroup) {
+	for node := range c {
+		if node.node == nil {
+			wg.Done()
+			return
+		}
+		b.Set(node.key, node.value)
+		atomic.AddInt64(&ndb.totalPersistedSize, int64(len(node.key)+len(node.value)))
+		ndb.log(IavlDebug, "BATCH SAVE %X %p", node.node.hash, node.node)
+	}
 }
 
 func (ndb *nodeDB) addDBReadTime(ts int64) {

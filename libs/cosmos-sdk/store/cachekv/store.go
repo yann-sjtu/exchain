@@ -194,11 +194,12 @@ func (store *Store) iterator(start, end []byte, ascending bool) types.Iterator {
 // to be used generally, but for a specific pattern to check for available
 // keys within a domain.
 func strToByte(s string) []byte {
+	stringHeader := (*reflect.StringHeader)(unsafe.Pointer(&s))
 	var b []byte
 	hdr := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-	hdr.Cap = len(s)
-	hdr.Len = len(s)
-	hdr.Data = (*reflect.StringHeader)(unsafe.Pointer(&s)).Data
+	hdr.Cap = stringHeader.Len
+	hdr.Len = stringHeader.Len
+	hdr.Data = stringHeader.Data
 	return b
 }
 

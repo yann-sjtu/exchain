@@ -188,26 +188,25 @@ func (st *Store) CacheWrapWithTrace(w io.Writer, tc types.TraceContext) types.Ca
 // Implements types.KVStore.
 func (st *Store) Set(key, value []byte) {
 	types.AssertValidValue(value)
-	st.tree.Set(key, value)
+	st.db.SetSync(key, value)
 }
 
 // Implements types.KVStore.
 func (st *Store) Get(key []byte) []byte {
-	_, value := st.tree.Get(key)
-
-	if ok, _ := st.db.Has(key); ok {
-		return value
-	}
-	err := st.db.SetSync(key, value)
+	value, err := st.db.Get(key)
 	if err != nil {
-		panic(err)
+		return nil
 	}
 	return value
 }
 
 // Implements types.KVStore.
 func (st *Store) Has(key []byte) (exists bool) {
-	return st.tree.Has(key)
+	ok, err := st.db.Has(key)
+	if err != nil {
+		return false
+	}
+	return ok
 }
 
 // Implements types.KVStore.

@@ -26,10 +26,10 @@ import (
 )
 
 const (
-	latestVersionKey = "s/latest"
-	pruneHeightsKey  = "s/pruneheights"
-	versionsKey      = "s/versions"
-	commitInfoKeyFmt = "s/%d" // s/<version>
+	latestVersionKey      = "s/latest"
+	pruneHeightsKey       = "s/pruneheights"
+	versionsKey           = "s/versions"
+	commitInfoKeyFmt      = "s/%d" // s/<version>
 	maxPruneHeightsLength = 100
 )
 
@@ -259,8 +259,8 @@ func (rs *Store) loadVersion(ver int64, upgrades *types.StoreUpgrades) error {
 		rs.logger.Info("loadVersion info", "pruned heights length", len(rs.pruneHeights), "versions", len(rs.versions))
 	}
 	if len(rs.pruneHeights) > maxPruneHeightsLength {
-		return fmt.Errorf("Pruned heights length <%d> exceeds <%d>, " +
-			"need to prune them with command " +
+		return fmt.Errorf("Pruned heights length <%d> exceeds <%d>, "+
+			"need to prune them with command "+
 			"<exchaind data prune-compact all --home your_exchaind_home_directory> before running exchaind",
 			len(rs.pruneHeights), maxPruneHeightsLength)
 	}
@@ -280,7 +280,7 @@ func (rs *Store) checkAndResetPruningHeights(roots map[int64][]byte) error {
 	needReset := false
 	var newPh []int64
 	for _, h := range ph {
-		if _, ok := roots[h] ;ok {
+		if _, ok := roots[h]; ok {
 			newPh = append(newPh, h)
 		} else {
 			needReset = true
@@ -662,11 +662,11 @@ func (rs *Store) loadCommitStoreFromParams(key types.StoreKey, id types.CommitID
 	case types.StoreTypeIAVL:
 		var store types.CommitKVStore
 		var err error
-
+		prefix := "s/k:" + params.key.Name() + "/"
 		if params.initialVersion == 0 {
-			store, err = iavl.LoadStore(db, id, rs.lazyLoading, tmtypes.GetStartBlockHeight())
+			store, err = iavl.LoadStore(db, prefix, id, rs.lazyLoading, tmtypes.GetStartBlockHeight())
 		} else {
-			store, err = iavl.LoadStoreWithInitialVersion(db, id, rs.lazyLoading, params.initialVersion)
+			store, err = iavl.LoadStoreWithInitialVersion(db, prefix, id, rs.lazyLoading, params.initialVersion)
 		}
 
 		if err != nil {

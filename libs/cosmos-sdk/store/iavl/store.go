@@ -4,7 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 	"sync"
+
+	sdk "github.com/okex/exchain/libs/cosmos-sdk/types"
+	"github.com/spf13/viper"
 
 	"github.com/okex/exchain/libs/iavl"
 	abci "github.com/okex/exchain/libs/tendermint/abci/types"
@@ -31,9 +35,26 @@ var (
 	_ types.Queryable     = (*Store)(nil)
 )
 
+var db2 dbm.DB
+var onceDB2 sync.Once
+
+func init() {
+	onceDB2.Do(func() {
+		rootDir := viper.GetString("home")
+		dataDir := filepath.Join(rootDir, "data")
+		applicationDB := "application2"
+		var err error
+		db2, err = sdk.NewLevelDB(applicationDB, dataDir)
+		if err != nil {
+			panic(err)
+		}
+	})
+}
+
 // Store Implements types.KVStore and CommitKVStore.
 type Store struct {
 	tree Tree
+	db   dbm.DB
 }
 
 func (st *Store) StopStore() {
@@ -48,14 +69,14 @@ func (st *Store) GetHeights() map[int64][]byte {
 // LoadStore returns an IAVL Store as a CommitKVStore. Internally, it will load the
 // store's version (id) from the provided DB. An error is returned if the version
 // fails to load.
-func LoadStore(db dbm.DB, id types.CommitID, lazyLoading bool, startVersion int64) (types.CommitKVStore, error) {
-	return LoadStoreWithInitialVersion(db, id, lazyLoading, uint64(startVersion))
+func LoadStore(db dbm.DB, prefix string, id types.CommitID, lazyLoading bool, startVersion int64) (types.CommitKVStore, error) {
+	return LoadStoreWithInitialVersion(db, prefix, id, lazyLoading, uint64(startVersion))
 }
 
 // LoadStore returns an IAVL Store as a CommitKVStore setting its initialVersion
 // to the one given. Internally, it will load the store's version (id) from the
 // provided DB. An error is returned if the version fails to load.
-func LoadStoreWithInitialVersion(db dbm.DB, id types.CommitID, lazyLoading bool, initialVersion uint64) (types.CommitKVStore, error) {
+func LoadStoreWithInitialVersion(db dbm.DB, prefix string, id types.CommitID, lazyLoading bool, initialVersion uint64) (types.CommitKVStore, error) {
 	tree, err := iavl.NewMutableTreeWithOpts(db, IavlCacheSize, &iavl.Options{InitialVersion: initialVersion})
 	if err != nil {
 		return nil, err
@@ -71,8 +92,10 @@ func LoadStoreWithInitialVersion(db dbm.DB, id types.CommitID, lazyLoading bool,
 		return nil, err
 	}
 
+	prefixDB := dbm.NewPrefixDB(db2, []byte(prefix))
 	return &Store{
 		tree: tree,
+		db:   prefixDB,
 	}, nil
 }
 
@@ -173,6 +196,14 @@ func (st *Store) Set(key, value []byte) {
 // Implements types.KVStore.
 func (st *Store) Get(key []byte) []byte {
 	_, value := st.tree.Get(key)
+
+	if ok, _ := st.db.Has(key); ok {
+		return value
+	}
+	err := st.db.SetSync(key, value)
+	if err != nil {
+		panic(err)
+	}
 	return value
 }
 

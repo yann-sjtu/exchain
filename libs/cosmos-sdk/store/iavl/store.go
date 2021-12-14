@@ -38,19 +38,6 @@ var (
 var db2 dbm.DB
 var onceDB2 sync.Once
 
-func init() {
-	onceDB2.Do(func() {
-		rootDir := viper.GetString("home")
-		dataDir := filepath.Join(rootDir, "data")
-		applicationDB := "application2"
-		var err error
-		db2, err = sdk.NewLevelDB(applicationDB, dataDir)
-		if err != nil {
-			panic(err)
-		}
-	})
-}
-
 // Store Implements types.KVStore and CommitKVStore.
 type Store struct {
 	tree Tree
@@ -91,6 +78,17 @@ func LoadStoreWithInitialVersion(db dbm.DB, prefix string, id types.CommitID, la
 	if err != nil {
 		return nil, err
 	}
+
+	onceDB2.Do(func() {
+		rootDir := viper.GetString("home")
+		dataDir := filepath.Join(rootDir, "data")
+		applicationDB := "application2"
+		var err error
+		db2, err = sdk.NewLevelDB(applicationDB, dataDir)
+		if err != nil {
+			panic(err)
+		}
+	})
 
 	prefixDB := dbm.NewPrefixDB(db2, []byte(prefix))
 	return &Store{

@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/okex/exchain/libs/cosmos-sdk/store/types"
+
 	abci "github.com/okex/exchain/libs/tendermint/abci/types"
 	"github.com/okex/exchain/libs/tendermint/trace"
 
@@ -299,7 +301,11 @@ func (app *BaseApp) Commit() (res abci.ResponseCommit) {
 	// The write to the DeliverTx state writes all state transitions to the root
 	// MultiStore (app.cms) so when Commit() is called is persists those values.
 	app.deliverState.ms.Write()
-	commitID := app.cms.Commit()
+	//commitID := app.cms.Commit()
+	commitID := types.CommitID{
+		Version: header.Height,
+		Hash:    nil,
+	}
 
 	trace.GetElapsedInfo().AddInfo("Iavl", fmt.Sprintf("getnode<%d>, rdb<%d>, rdbTs<%dms>, savenode<%d>",
 		app.cms.GetNodeReadCount(), app.cms.GetDBReadCount(), time.Duration(app.cms.GetDBReadTime()).Milliseconds(), app.cms.GetDBWriteCount()))

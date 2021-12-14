@@ -2,10 +2,15 @@ package types
 
 import (
 	"errors"
+	"math/big"
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	"github.com/okex/exchain/libs/tendermint/crypto/sr25519"
+
+	"github.com/okex/exchain/libs/tendermint/crypto/ed25519"
+
 	"github.com/okex/exchain/libs/tendermint/crypto/secp256k1"
+	"github.com/stretchr/testify/require"
 
 	"github.com/okex/exchain/libs/cosmos-sdk/codec"
 	sdk "github.com/okex/exchain/libs/cosmos-sdk/types"
@@ -98,6 +103,151 @@ func TestBaseAccountMarshal(t *testing.T) {
 	acc2 = BaseAccount{}
 	err = cdc.UnmarshalBinaryLengthPrefixed(b[:len(b)/2], &acc2)
 	require.NotNil(t, err)
+}
+
+func TestBaseAccountAmino(t *testing.T) {
+	_, pub, addr := KeyTestPubAddr()
+	acc := NewBaseAccountWithAddress(addr)
+
+	someCoins := sdk.Coins{sdk.NewInt64Coin("atom", 123), sdk.NewInt64Coin("eth", 123456789123456)}
+	seq := uint64(7)
+
+	// set everything on the account
+	err := acc.SetPubKey(pub)
+	require.Nil(t, err)
+	err = acc.SetSequence(seq)
+	require.Nil(t, err)
+	err = acc.SetCoins(someCoins)
+	require.Nil(t, err)
+
+	accs := []BaseAccount{
+		{},
+		{
+			Address:       addr,
+			PubKey:        pub,
+			Coins:         someCoins,
+			Sequence:      seq,
+			AccountNumber: 512,
+		},
+		{
+			Address:       []byte{},
+			PubKey:        ed25519.GenPrivKey().PubKey(),
+			Coins:         sdk.Coins{},
+			Sequence:      1024,
+			AccountNumber: 512,
+		},
+		{
+			Address: ed25519.GenPrivKey().Bytes(),
+			PubKey:  sr25519.GenPrivKey().PubKey(),
+			Coins: sdk.Coins{
+				sdk.NewDecCoinFromDec("test", sdk.Dec{big.NewInt(123456789012345).Mul(big.NewInt(123456789012345), (big.NewInt(123456789012345)))}),
+				sdk.DecCoin{"test2", sdk.Dec{nil}},
+				sdk.DecCoin{"", sdk.Dec{nil}},
+			},
+			Sequence:      1024,
+			AccountNumber: 512,
+		},
+		acc,
+	}
+
+	// need a codec for marshaling
+	cdc := codec.New()
+	codec.RegisterCrypto(cdc)
+
+	for _, acc := range accs {
+		b, err := cdc.MarshalBinaryBare(acc)
+		require.Nil(t, err)
+
+		b2, err := acc.marshalToAmino()
+		require.NoError(t, err)
+
+		b3, err := acc.marshalToAminoWithSizeCompute()
+		require.NoError(t, err)
+
+		b4, err := acc.marshalToAminoWithPool()
+		require.NoError(t, err)
+
+		require.EqualValues(t, b, b2)
+		require.EqualValues(t, b, b3)
+		require.EqualValues(t, b, b4)
+	}
+}
+
+func BenchmarkBaseAccountAmino(b *testing.B) {
+	accs := []BaseAccount{
+		{},
+		{
+			Address:       []byte{},
+			PubKey:        ed25519.GenPrivKey().PubKey(),
+			Coins:         sdk.Coins{},
+			Sequence:      1024,
+			AccountNumber: 512,
+		},
+		{
+			Address: ed25519.GenPrivKey().Bytes(),
+			PubKey:  sr25519.GenPrivKey().PubKey(),
+			Coins: sdk.Coins{
+				sdk.NewDecCoinFromDec("test", sdk.Dec{big.NewInt(123456789012345).Mul(big.NewInt(123456789012345), (big.NewInt(123456789012345)))}),
+				sdk.DecCoin{"test2", sdk.Dec{nil}},
+			},
+			Sequence:      1024,
+			AccountNumber: 512,
+		},
+	}
+
+	// need a codec for marshaling
+	cdc := codec.New()
+	codec.RegisterCrypto(cdc)
+
+	b.ResetTimer()
+
+	b.Run("amino", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			for _, acc := range accs {
+				_, err := cdc.MarshalBinaryBare(acc)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		}
+	})
+
+	b.Run("marshaller with pool", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			for _, acc := range accs {
+				_, err := acc.marshalToAminoWithPool()
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		}
+	})
+
+	b.Run("marshaller size compute", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			b.ReportAllocs()
+			for _, acc := range accs {
+				_, err := acc.marshalToAminoWithSizeCompute()
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		}
+	})
+
+	b.Run("marshaller", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			b.ReportAllocs()
+			for _, acc := range accs {
+				_, err := acc.marshalToAmino()
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		}
+	})
 }
 
 func TestGenesisAccountValidate(t *testing.T) {

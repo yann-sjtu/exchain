@@ -173,3 +173,57 @@ func MarshalPubKeyToAminoWithTypePrefix(key crypto.PubKey) (data []byte, err err
 	}
 	return nil, errors.New("unknown pubkey type")
 }
+
+func MarshalPubKeyToAminoWithTypePrefixToBuffer(key crypto.PubKey, buf *bytes.Buffer) error {
+	switch key.(type) {
+	case secp256k1.PubKeySecp256k1:
+		_, err := buf.Write(typePubKeySecp256k1Prefix)
+		if err != nil {
+			return err
+		}
+		err = buf.WriteByte(byte(secp256k1.PubKeySecp256k1Size))
+		if err != nil {
+			return err
+		}
+		keyData := key.(secp256k1.PubKeySecp256k1)
+		_, err = buf.Write(keyData[:])
+		return err
+	case ed25519.PubKeyEd25519:
+		_, err := buf.Write(typePubKeyEd25519Prefix)
+		if err != nil {
+			return err
+		}
+		err = buf.WriteByte(byte(ed25519.PubKeyEd25519Size))
+		if err != nil {
+			return err
+		}
+		keyData := key.(ed25519.PubKeyEd25519)
+		_, err = buf.Write(keyData[:])
+		return err
+	case sr25519.PubKeySr25519:
+		_, err := buf.Write(typePubKeySr25519Prefix)
+		if err != nil {
+			return err
+		}
+		err = buf.WriteByte(byte(sr25519.PubKeySr25519Size))
+		if err != nil {
+			return err
+		}
+		keyData := key.(sr25519.PubKeySr25519)
+		_, err = buf.Write(keyData[:])
+		return err
+	}
+	return errors.New("unknown pubkey type")
+}
+
+func PubKeyAminoSizeWithTypePrefix(key crypto.PubKey) (size int, err error) {
+	switch key.(type) {
+	case secp256k1.PubKeySecp256k1:
+		return secp256k1.PubKeySecp256k1Size + typePrefixAndSizeLen, nil
+	case ed25519.PubKeyEd25519:
+		return ed25519.PubKeyEd25519Size + typePrefixAndSizeLen, nil
+	case sr25519.PubKeySr25519:
+		return sr25519.PubKeySr25519Size + typePrefixAndSizeLen, nil
+	}
+	return 0, errors.New("unknown pubkey type")
+}

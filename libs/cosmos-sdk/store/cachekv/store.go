@@ -56,7 +56,7 @@ func (store *Store) Get(key []byte) (value []byte) {
 
 	types.AssertValidKey(key)
 
-	cacheValue, ok := store.cache[string(key)]
+	cacheValue, ok := store.cache[byteSliceToStr(key)]
 	if !ok {
 		value = store.parent.Get(key)
 		store.setCacheValue(key, value, false, false)
@@ -131,7 +131,7 @@ func (store *Store) Write() {
 		cacheValue := store.cache[key]
 		switch {
 		case cacheValue.deleted:
-			store.parent.Delete([]byte(key))
+			store.parent.Delete(strToByte(key))
 		case cacheValue.value == nil:
 			// Skip, it already doesn't exist in parent.
 		default:

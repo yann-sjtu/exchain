@@ -245,11 +245,14 @@ func MarshalEventToAmino(event Event) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+var responseDeliverTxBufferPool = amino.NewBufferPool()
+
 func MarshalResponseDeliverTxToAmino(tx *ResponseDeliverTx) ([]byte, error) {
 	if tx == nil {
 		return nil, nil
 	}
-	var buf bytes.Buffer
+	var buf = responseDeliverTxBufferPool.Get()
+	defer responseDeliverTxBufferPool.Put(buf)
 	fieldKeysType := [8]byte{1 << 3, 2<<3 | 2, 3<<3 | 2, 4<<3 | 2, 5 << 3, 6 << 3, 7<<3 | 2, 8<<3 | 2}
 	for pos := 1; pos <= 8; pos++ {
 		lBeforeKey := buf.Len()
@@ -264,7 +267,7 @@ func MarshalResponseDeliverTxToAmino(tx *ResponseDeliverTx) ([]byte, error) {
 				noWrite = true
 				break
 			}
-			err = amino.EncodeUvarintToBuffer(&buf, uint64(tx.Code))
+			err = amino.EncodeUvarintToBuffer(buf, uint64(tx.Code))
 			if err != nil {
 				return nil, err
 			}
@@ -273,7 +276,7 @@ func MarshalResponseDeliverTxToAmino(tx *ResponseDeliverTx) ([]byte, error) {
 				noWrite = true
 				break
 			}
-			err = amino.EncodeByteSliceToBuffer(&buf, tx.Data)
+			err = amino.EncodeByteSliceToBuffer(buf, tx.Data)
 			if err != nil {
 				return nil, err
 			}
@@ -282,7 +285,7 @@ func MarshalResponseDeliverTxToAmino(tx *ResponseDeliverTx) ([]byte, error) {
 				noWrite = true
 				break
 			}
-			err = amino.EncodeStringToBuffer(&buf, tx.Log)
+			err = amino.EncodeStringToBuffer(buf, tx.Log)
 			if err != nil {
 				return nil, err
 			}
@@ -291,7 +294,7 @@ func MarshalResponseDeliverTxToAmino(tx *ResponseDeliverTx) ([]byte, error) {
 				noWrite = true
 				break
 			}
-			err = amino.EncodeStringToBuffer(&buf, tx.Info)
+			err = amino.EncodeStringToBuffer(buf, tx.Info)
 			if err != nil {
 				return nil, err
 			}
@@ -300,7 +303,7 @@ func MarshalResponseDeliverTxToAmino(tx *ResponseDeliverTx) ([]byte, error) {
 				noWrite = true
 				break
 			}
-			err = amino.EncodeUvarintToBuffer(&buf, uint64(tx.GasWanted))
+			err = amino.EncodeUvarintToBuffer(buf, uint64(tx.GasWanted))
 			if err != nil {
 				return nil, err
 			}
@@ -309,7 +312,7 @@ func MarshalResponseDeliverTxToAmino(tx *ResponseDeliverTx) ([]byte, error) {
 				noWrite = true
 				break
 			}
-			err = amino.EncodeUvarintToBuffer(&buf, uint64(tx.GasUsed))
+			err = amino.EncodeUvarintToBuffer(buf, uint64(tx.GasUsed))
 			if err != nil {
 				return nil, err
 			}
@@ -319,11 +322,11 @@ func MarshalResponseDeliverTxToAmino(tx *ResponseDeliverTx) ([]byte, error) {
 				noWrite = true
 				break
 			}
-			data, err := MarshalEventToAmino(tx.Events[0])
+			data, err := tx.Events[0].MarshalToAmino()
 			if err != nil {
 				return nil, err
 			}
-			err = amino.EncodeByteSliceToBuffer(&buf, data)
+			err = amino.EncodeByteSliceToBuffer(buf, data)
 			if err != nil {
 				return nil, err
 			}
@@ -332,11 +335,11 @@ func MarshalResponseDeliverTxToAmino(tx *ResponseDeliverTx) ([]byte, error) {
 				if err != nil {
 					return nil, err
 				}
-				data, err = MarshalEventToAmino(tx.Events[i])
+				data, err = tx.Events[i].MarshalToAmino()
 				if err != nil {
 					return nil, err
 				}
-				err = amino.EncodeByteSliceToBuffer(&buf, data)
+				err = amino.EncodeByteSliceToBuffer(buf, data)
 				if err != nil {
 					return nil, err
 				}
@@ -346,7 +349,7 @@ func MarshalResponseDeliverTxToAmino(tx *ResponseDeliverTx) ([]byte, error) {
 				noWrite = true
 				break
 			}
-			err = amino.EncodeStringToBuffer(&buf, tx.Codespace)
+			err = amino.EncodeStringToBuffer(buf, tx.Codespace)
 			if err != nil {
 				return nil, err
 			}
@@ -358,7 +361,7 @@ func MarshalResponseDeliverTxToAmino(tx *ResponseDeliverTx) ([]byte, error) {
 			buf.Truncate(lBeforeKey)
 		}
 	}
-	return buf.Bytes(), nil
+	return amino.GetBytesBufferCopy(buf), nil
 }
 
 func MarshalResponseBeginBlockToAmino(beginBlock *ResponseBeginBlock) ([]byte, error) {

@@ -1,7 +1,12 @@
 package main
 
 import (
+	"bufio"
+	"encoding/hex"
+	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -11,6 +16,7 @@ import (
 	"time"
 
 	"github.com/okex/exchain/app/config"
+	"github.com/okex/exchain/app/global"
 	"github.com/okex/exchain/libs/cosmos-sdk/baseapp"
 	"github.com/okex/exchain/libs/cosmos-sdk/server"
 	"github.com/okex/exchain/libs/cosmos-sdk/store/iavl"
@@ -129,6 +135,7 @@ func replayBlock(ctx *server.Context, originDataDir string) {
 	}
 
 	// replay
+
 	doReplay(ctx, state, stateStoreDB, proxyApp, originDataDir, currentAppHash, currentBlockHeight)
 	if viper.GetBool(sm.FlagParalleledTx) {
 		baseapp.ParaLog.PrintLog()
@@ -251,6 +258,53 @@ func doReplay(ctx *server.Context, state sm.State, stateStoreDB dbm.DB,
 	log.Println("replay stop block height", "height", haltheight)
 
 	// Replay blocks up to the latest in the blockstore.
+
+	unmarshal := func(body string) *tmiavl.Node {
+		b, err := hex.DecodeString(body)
+		if err != nil {
+			panic(errors.New("decode error"))
+		}
+		n, err := tmiavl.MakeNode(b)
+		if err != nil {
+			e := fmt.Sprintf("make node error1 %v,%s,%d", err, body, len(b))
+			panic(errors.New(e))
+		}
+		return n
+		//return (*Node)(unsafe.Pointer(&b[0]))
+	}
+	
+	loadFromFile := func() error {
+		file, err := os.Open("./keymap")
+		if err != nil {
+			log.Printf("Cannot open text file: %s, err: [%v]", "./keymap", err)
+			return err
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+		//var height int64
+		for scanner.Scan() {
+			line := scanner.Text()
+			vs := strings.Split(line, ":")
+			v := vs[2] 
+
+			if vs[2][len(vs[2])-1] == '\n' {
+				v = vs[2][:len(vs[2])-1]
+			}
+			node := unmarshal(v)
+			he, _ := strconv.ParseInt(vs[0], 10, 64)  
+			global.MemKeyCache.SetCache(he, vs[1], node)
+		}
+
+		if err := scanner.Err(); err != nil {
+			log.Printf("Cannot scanner text file: %s, err: [%v]", "./keymap", err)
+			return err
+		}
+		return nil
+	}
+
+	loadFromFile()
+	
 	if lastBlockHeight == state.LastBlockHeight+1 {
 		abciResponses, err := sm.LoadABCIResponses(stateStoreDB, lastBlockHeight)
 		panicError(err)
@@ -271,8 +325,12 @@ func doReplay(ctx *server.Context, state sm.State, stateStoreDB dbm.DB,
 
 	baseapp.SetGlobalMempool(mock.Mempool{}, ctx.Config.Mempool.SortTxByGp, ctx.Config.Mempool.EnablePendingPool)
 	needSaveBlock := viper.GetBool(saveBlock)
+
+	//load mem cache from disk file
+
 	for height := lastBlockHeight + 1; height <= haltheight; height++ {
 		log.Println("replaying ", height)
+		global.StoreHeight(height)
 		block := originBlockStore.LoadBlock(height)
 		meta := originBlockStore.LoadBlockMeta(height)
 		blockExec.SetIsAsyncDeliverTx(viper.GetBool(sm.FlagParalleledTx))

@@ -1,14 +1,18 @@
 package iavl
 
 import (
+	"bufio"
 	"bytes"
 	"container/list"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"math"
+	"os"
 	"sort"
 	"sync"
 
+	"github.com/okex/exchain/app/global"
 	"github.com/okex/exchain/libs/iavl/config"
 	"github.com/okex/exchain/libs/tendermint/crypto/tmhash"
 	"github.com/pkg/errors"
@@ -36,7 +40,91 @@ var (
 	// Root nodes are indexed separately by their version
 	rootKeyFormat = NewKeyFormat('r', int64Size) // r<version>
 
+	file        *os.File
+	err         error
+	onceFile    sync.Once
+	isWriteFile = false 
 )
+
+func init() {
+	onceFile.Do(func() {
+		if isWriteFile {
+			file, err = os.Create("./keymap")
+			if err != nil {
+				fmt.Printf("create map file error: %v\n", err)
+			}
+		}
+	})
+}
+
+func WriteLine(height int64, key, value string) error {
+	if !isWriteFile {
+		return nil
+	}
+	w := bufio.NewWriter(file)
+	fmt.Fprintln(w, fmt.Sprintf("%d:%s:%s", height, key, value))
+
+	return w.Flush()
+}
+
+func ReadLine() error {
+	file, err := os.Open("./keymap")
+	if err != nil {
+		log.Printf("Cannot open text file: %s, err: [%v]", "./keymap", err)
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		fmt.Printf("%s\n", line)
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Printf("Cannot scanner text file: %s, err: [%v]", "./keymap", err)
+		return err
+	}
+	return nil
+}
+
+type SliceMock struct {
+	addr uintptr
+	len  int
+	cap  int
+}
+
+func Marshal(node *Node) string {
+	// len := unsafe.Sizeof(*node)
+	// sliceMockTest := SliceMock{
+	// 	addr: uintptr(unsafe.Pointer(node)),
+	// 	len:  int(len),
+	// 	cap:  int(len),
+	// }
+	// structToByte := *(*[]byte)(unsafe.Pointer(&sliceMockTest))
+
+	// return hex.EncodeToString(structToByte)
+	var buf bytes.Buffer
+	buf.Grow(node.aminoSize())
+
+	if err := node.writeBytes(&buf); err != nil {
+		panic(err)
+	}
+
+	return hex.EncodeToString(buf.Bytes())
+}
+func Unmarshal(body string) *Node {
+	b, err := hex.DecodeString(body)
+	if err != nil {
+		panic(errors.New("decode error"))
+	}
+	n, err := MakeNode(b)
+	if err != nil {
+		panic(errors.New("make node error"))
+	}
+	return n
+	//return (*Node)(unsafe.Pointer(&b[0]))
+}
 
 type nodeDB struct {
 	mtx            sync.RWMutex     // Read/write lock.
@@ -102,28 +190,42 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 // load its children.
 func (ndb *nodeDB) GetNode(hash []byte) *Node {
 
-	res := func() *Node {
+	height := global.LoadHeight()
 
+	res := func() *Node {
 		ndb.mtx.RLock()
 		defer ndb.mtx.RUnlock()
 		ndb.addNodeReadCount()
 		if len(hash) == 0 {
 			panic("nodeDB.GetNode() requires hash")
 		}
+		//add to cache memory to disk
+		
+		if !isWriteFile {
+			elem := global.MemKeyCache.GetCache(height, hex.EncodeToString(hash))
+			if elem != nil {
+				return elem.(*Node)
+			}
+		}
+		
 		if elem, ok := ndb.prePersistNodeCache[string(hash)]; ok {
+			WriteLine(height, hex.EncodeToString(hash), Marshal(elem))
 			return elem
 		}
 
 		if elem, ok := ndb.getNodeInTpp(hash); ok { // GetNode from tpp
+			WriteLine(height, hex.EncodeToString(hash), Marshal(elem))
 			return elem
 		}
 		// Check the cache.
 		if elem, ok := ndb.nodeCache[string(hash)]; ok {
 			// Already exists. Move to back of nodeCacheQueue.
 			ndb.nodeCacheQueue.MoveToBack(elem)
+			WriteLine(height, hex.EncodeToString(hash), Marshal(elem.Value.(*Node)))
 			return elem.Value.(*Node)
 		}
 		if elem, ok := ndb.orphanNodeCache[string(hash)]; ok {
+			WriteLine(height, hex.EncodeToString(hash), Marshal(elem))
 			return elem
 		}
 
@@ -153,6 +255,7 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 	node.hash = hash
 	node.persisted = true
 	ndb.cacheNodeByCheck(node)
+	WriteLine(height, hex.EncodeToString(hash), Marshal(node))
 
 	return node
 }

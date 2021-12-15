@@ -1,7 +1,6 @@
 package state
 
 import (
-	"bytes"
 	"fmt"
 
 	"github.com/tendermint/go-amino"
@@ -128,8 +127,11 @@ type ABCIResponses struct {
 	BeginBlock *abci.ResponseBeginBlock  `json:"begin_block"`
 }
 
+var abciResponsesBufferPool = amino.NewBufferPool()
+
 func (arz ABCIResponses) MarshalToAmino() ([]byte, error) {
-	var buf bytes.Buffer
+	var buf = abciResponsesBufferPool.Get()
+	defer abciResponsesBufferPool.Put(buf)
 	var err error
 	fieldKeysType := [3]byte{1<<3 | 2, 2<<3 | 2, 3<<3 | 2}
 	for pos := 1; pos <= 3; pos++ {
@@ -147,7 +149,7 @@ func (arz ABCIResponses) MarshalToAmino() ([]byte, error) {
 				if err != nil {
 					return nil, err
 				}
-				err = amino.EncodeByteSliceToBuffer(&buf, data)
+				err = amino.EncodeByteSliceToBuffer(buf, data)
 				if err != nil {
 					return nil, err
 				}
@@ -164,7 +166,7 @@ func (arz ABCIResponses) MarshalToAmino() ([]byte, error) {
 			if err != nil {
 				return nil, err
 			}
-			err = amino.EncodeByteSliceToBuffer(&buf, data)
+			err = amino.EncodeByteSliceToBuffer(buf, data)
 			if err != nil {
 				return nil, err
 			}
@@ -180,7 +182,7 @@ func (arz ABCIResponses) MarshalToAmino() ([]byte, error) {
 			if err != nil {
 				return nil, err
 			}
-			err = amino.EncodeByteSliceToBuffer(&buf, data)
+			err = amino.EncodeByteSliceToBuffer(buf, data)
 			if err != nil {
 				return nil, err
 			}
@@ -188,7 +190,7 @@ func (arz ABCIResponses) MarshalToAmino() ([]byte, error) {
 			panic("unreachable")
 		}
 	}
-	return buf.Bytes(), nil
+	return amino.GetBytesBufferCopy(buf), nil
 }
 
 // PruneStates deletes states between the given heights (including from, excluding to). It is not

@@ -197,6 +197,9 @@ func (st *Store) Get(key []byte) []byte {
 	if err != nil {
 		return nil
 	}
+	if len(value) == 0 {
+		return nil
+	}
 	return value
 }
 

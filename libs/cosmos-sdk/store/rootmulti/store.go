@@ -387,7 +387,17 @@ func (rs *Store) LastCommitID() types.CommitID {
 func (rs *Store) Commit() types.CommitID {
 	previousHeight := rs.lastCommitInfo.Version
 	version := previousHeight + 1
-	rs.lastCommitInfo = commitStores(version, rs.stores)
+	//rs.lastCommitInfo = commitStores(version, rs.stores)
+	lastStores := rs.lastCommitInfo.StoreInfos
+	rs.lastCommitInfo = commitInfo{
+		Version:    version,
+		StoreInfos: lastStores,
+	}
+
+	return types.CommitID{
+		Version: version,
+		Hash:    rs.lastCommitInfo.Hash(),
+	}
 
 	if !iavltree.EnableAsyncCommit {
 		// Determine if pruneHeight height needs to be added to the list of heights to

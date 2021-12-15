@@ -1,7 +1,6 @@
 package global
 
 import (
-	"log"
 	"sync"
 	"sync/atomic"
 )
@@ -37,17 +36,17 @@ func NewMemCache() *MemCache {
 	}
 }
 
-func (m *MemCache) GetCache(height int64, hash string) []byte {
+func (m *MemCache) GetCache(height int64, key string) []byte {
 	//m.lock.RLock()
 	//defer m.lock.RUnlock()
 
 	hc := m.Cache[height]
-	v, ok := hc[hash]
+	v, ok := hc[key]
 	if !ok {
-		log.Println("not get cache", height, hash, len(hash))
+		//log.Println("not get cache", height, key, len(key))
 		return nil
 	}
-	log.Println("get cache succ", height, string(hash))
+	//log.Println("get cache succ", height, string(key), hex.EncodeToString(v))
 	return v
 }
 

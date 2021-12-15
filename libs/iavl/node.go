@@ -23,7 +23,7 @@ var (
 	file        *os.File
 	err         error
 	onceFile    sync.Once
-	isWriteFile = true
+	isWriteFile = false
 )
 
 // NodeJson provide json Marshal of Node.

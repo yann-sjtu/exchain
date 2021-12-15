@@ -23,6 +23,12 @@ import (
 var _ exported.Account = (*EthAccount)(nil)
 var _ exported.GenesisAccount = (*EthAccount)(nil)
 
+var ethAccountBufferPool = &sync.Pool{
+	New: func() interface{} {
+		return &bytes.Buffer{}
+	},
+}
+
 func init() {
 	authtypes.RegisterAccountTypeCodec(&EthAccount{}, EthAccountName)
 }
@@ -38,17 +44,31 @@ type EthAccount struct {
 	CodeHash               []byte `json:"code_hash" yaml:"code_hash"`
 }
 
-var ethAccountBufferPool = &sync.Pool{
-	New: func() interface{} {
-		return &bytes.Buffer{}
-	},
+func (acc EthAccount) MarshalToAmino() ([]byte, error) {
+	return acc.marshalToAminoWithSizeCompute()
 }
 
-func (acc EthAccount) MarshalToAmino() ([]byte, error) {
-	var buf = ethAccountBufferPool.Get().(*bytes.Buffer)
-	buf.Reset()
-	defer ethAccountBufferPool.Put(buf)
+func (acc EthAccount) marshalToAmino() ([]byte, error) {
+	var buf = &bytes.Buffer{}
+	err := acc.marshalToAminoToBuffer(buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
 
+func (acc EthAccount) marshalToAminoWithPool() ([]byte, error) {
+	var buf = ethAccountBufferPool.Get().(*bytes.Buffer)
+	defer ethAccountBufferPool.Put(buf)
+	buf.Reset()
+	err := acc.marshalToAminoToBuffer(buf)
+	if err != nil {
+		return nil, err
+	}
+	return amino.GetBytesBufferCopy(buf), nil
+}
+
+func (acc EthAccount) marshalToAminoToBuffer(buf *bytes.Buffer) error {
 	var fieldKeysType = [2]byte{1<<3 | 2, 2<<3 | 2}
 	var err error
 
@@ -60,19 +80,19 @@ func (acc EthAccount) MarshalToAmino() ([]byte, error) {
 			}
 			err = buf.WriteByte(fieldKeysType[pos-1])
 			if err != nil {
-				return nil, err
+				return err
 			}
 			data, err := acc.BaseAccount.MarshalToAmino()
 			if err != nil {
-				return nil, err
+				return err
 			}
 			err = amino.EncodeUvarintToBuffer(buf, uint64(len(data)))
 			if err != nil {
-				return nil, err
+				return err
 			}
 			_, err = buf.Write(data)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		case 2:
 			codeHashLen := len(acc.CodeHash)
@@ -81,21 +101,67 @@ func (acc EthAccount) MarshalToAmino() ([]byte, error) {
 			}
 			err = buf.WriteByte(fieldKeysType[pos-1])
 			if err != nil {
-				return nil, err
+				return err
 			}
 			err = amino.EncodeUvarintToBuffer(buf, uint64(codeHashLen))
 			if err != nil {
-				return nil, err
+				return err
 			}
 			_, err = buf.Write(acc.CodeHash)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		default:
 			panic("unreachable")
 		}
 	}
-	return amino.GetBytesBufferCopy(buf), nil
+	return nil
+}
+
+func (acc EthAccount) marshalToAminoWithSizeCompute() ([]byte, error) {
+	var buf = &bytes.Buffer{}
+	var fieldKeysType = [2]byte{1<<3 | 2, 2<<3 | 2}
+	var err error
+	var size int
+	var baseAccountBytes []byte
+
+	if acc.BaseAccount != nil {
+		baseAccountBytes, err = acc.BaseAccount.MarshalToAmino()
+		if err != nil {
+			return nil, err
+		}
+		size += 1 + amino.UvarintSize(uint64(len(baseAccountBytes))) + len(baseAccountBytes)
+	}
+
+	if len(acc.CodeHash) != 0 {
+		size += 1 + amino.UvarintSize(uint64(len(acc.CodeHash))) + len(acc.CodeHash)
+	}
+
+	buf.Grow(size)
+
+	if acc.BaseAccount != nil {
+		err = buf.WriteByte(fieldKeysType[0])
+		if err != nil {
+			return nil, err
+		}
+		err = amino.EncodeByteSliceToBuffer(buf, baseAccountBytes)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if len(acc.CodeHash) != 0 {
+		err = buf.WriteByte(fieldKeysType[1])
+		if err != nil {
+			return nil, err
+		}
+		err = amino.EncodeByteSliceToBuffer(buf, acc.CodeHash)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return buf.Bytes(), nil
 }
 
 // ProtoAccount defines the prototype function for BaseAccount used for an

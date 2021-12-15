@@ -74,3 +74,77 @@ func MarshalPairToAmino(pair Pair) ([]byte, error) {
 	}
 	return buf.Bytes(), nil
 }
+
+func (pair Pair) AminoSize() int {
+	var size int
+	if len(pair.Key) > 0 {
+		size += 1 + amino.ByteSliceSize(pair.Key)
+	}
+	if len(pair.Value) > 0 {
+		size += 1 + amino.ByteSliceSize(pair.Value)
+	}
+	return size
+}
+
+func (pair Pair) MarshalToAmino() ([]byte, error) {
+	return pair.marshalToAminoWithSizeCompute()
+}
+
+func (pair Pair) marshalToAmino() ([]byte, error) {
+	var buf = &bytes.Buffer{}
+	err := pair.MarshalToAminoToBuffer(buf)
+	return buf.Bytes(), err
+}
+
+func (pair Pair) marshalToAminoWithSizeCompute() ([]byte, error) {
+	var buf = &bytes.Buffer{}
+	buf.Grow(pair.AminoSize())
+	err := pair.MarshalToAminoToBuffer(buf)
+	return buf.Bytes(), err
+}
+
+var pairBufferPool = amino.NewBufferPool()
+
+func (pair Pair) marshalToAminoWithPool() ([]byte, error) {
+	var buf = pairBufferPool.Get()
+	defer pairBufferPool.Put(buf)
+	buf.Grow(pair.AminoSize())
+	err := pair.MarshalToAminoToBuffer(buf)
+	return amino.GetBytesBufferCopy(buf), err
+}
+
+func (pair Pair) MarshalToAminoToBuffer(buf *bytes.Buffer) error {
+	fieldKeysType := [2]byte{1<<3 | 2, 2<<3 | 2}
+	var err error
+	for pos := 1; pos <= 2; pos++ {
+		switch pos {
+		case 1:
+			if len(pair.Key) == 0 {
+				break
+			}
+			err = buf.WriteByte(fieldKeysType[pos-1])
+			if err != nil {
+				return err
+			}
+			err = amino.EncodeByteSliceToBuffer(buf, pair.Key)
+			if err != nil {
+				return err
+			}
+		case 2:
+			if len(pair.Value) == 0 {
+				break
+			}
+			err = buf.WriteByte(fieldKeysType[pos-1])
+			if err != nil {
+				return err
+			}
+			err = amino.EncodeByteSliceToBuffer(buf, pair.Value)
+			if err != nil {
+				return err
+			}
+		default:
+			panic("unreachable")
+		}
+	}
+	return nil
+}

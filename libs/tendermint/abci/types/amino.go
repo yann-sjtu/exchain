@@ -245,6 +245,167 @@ func MarshalEventToAmino(event Event) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+func (event Event) AminoSize() int {
+	var size int
+	if event.Type != "" {
+		size += 1 + amino.EncodedStringSize(event.Type)
+	}
+	for _, attr := range event.Attributes {
+		attrSize := attr.AminoSize()
+		size += 1 + amino.UvarintSize(uint64(attrSize)) + attrSize
+	}
+	return size
+}
+
+func (event Event) MarshalToAmino() ([]byte, error) {
+	return event.marshalToAminoWithSizeCompute2()
+}
+
+func (event Event) marshalToAmino() ([]byte, error) {
+	var buf = &bytes.Buffer{}
+	err := event.MarshalToAminoToBuffer(buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (event Event) marshalToAminoWithSizeCompute() ([]byte, error) {
+	var buf = &bytes.Buffer{}
+	buf.Grow(event.AminoSize())
+	err := event.marshalToAminoToBuffer(buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (event Event) marshalToAminoWithSizeCompute2() ([]byte, error) {
+	var buf bytes.Buffer
+	buf.Grow(event.AminoSize())
+	err := event.marshalToAminoToBuffer2(&buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+var eventBufferPool = amino.NewBufferPool()
+
+func (event Event) marshalToAminoWithPool() ([]byte, error) {
+	var buf = eventBufferPool.Get()
+	defer eventBufferPool.Put(buf)
+	buf.Grow(event.AminoSize())
+	err := event.MarshalToAminoToBuffer(buf)
+	if err != nil {
+		return nil, err
+	}
+	return amino.GetBytesBufferCopy(buf), nil
+}
+
+func (event Event) MarshalToAminoToBuffer(buf *bytes.Buffer) error {
+	return event.marshalToAminoToBuffer2(buf)
+}
+
+func (event Event) marshalToAminoToBuffer(buf *bytes.Buffer) error {
+	var err error
+	fieldKeysType := [2]byte{1<<3 | 2, 2<<3 | 2}
+	for pos := 1; pos <= 2; pos++ {
+		switch pos {
+		case 1:
+			if event.Type == "" {
+				break
+			}
+			err = buf.WriteByte(fieldKeysType[pos-1])
+			if err != nil {
+				return err
+			}
+			err = amino.EncodeUvarintToBuffer(buf, uint64(len(event.Type)))
+			if err != nil {
+				return err
+			}
+			_, err = buf.WriteString(event.Type)
+			if err != nil {
+				return err
+			}
+		case 2:
+			for i := 0; i < len(event.Attributes); i++ {
+				err = buf.WriteByte(fieldKeysType[pos-1])
+				if err != nil {
+					return err
+				}
+				data, err := kv.MarshalPairToAmino(event.Attributes[i])
+				if err != nil {
+					return err
+				}
+				err = amino.EncodeByteSliceToBuffer(buf, data)
+				if err != nil {
+					return err
+				}
+			}
+		default:
+			panic("unreachable")
+		}
+	}
+	return nil
+}
+
+func (event Event) marshalToAminoToBuffer2(buf *bytes.Buffer) error {
+	var err error
+	fieldKeysType := [2]byte{1<<3 | 2, 2<<3 | 2}
+	for pos := 1; pos <= 2; pos++ {
+		switch pos {
+		case 1:
+			if event.Type == "" {
+				break
+			}
+			err = buf.WriteByte(fieldKeysType[pos-1])
+			if err != nil {
+				return err
+			}
+			err = amino.EncodeUvarintToBuffer(buf, uint64(len(event.Type)))
+			if err != nil {
+				return err
+			}
+			_, err = buf.WriteString(event.Type)
+			if err != nil {
+				return err
+			}
+		case 2:
+			for i := 0; i < len(event.Attributes); i++ {
+				err = buf.WriteByte(fieldKeysType[pos-1])
+				if err != nil {
+					return err
+				}
+
+				_size := event.Attributes[i].AminoSize()
+				lenAfterKey := buf.Len()
+				err = amino.EncodeUvarintToBuffer(buf, uint64(_size))
+				lenBeforeValue := buf.Len()
+				err = event.Attributes[i].MarshalToAminoToBuffer(buf)
+				if err != nil {
+					return err
+				}
+				lenAfterValue := buf.Len()
+				if lenAfterValue-lenBeforeValue != _size {
+					buf.Truncate(lenAfterKey)
+					data, err := kv.MarshalPairToAmino(event.Attributes[i])
+					if err != nil {
+						return err
+					}
+					err = amino.EncodeByteSliceToBuffer(buf, data)
+					if err != nil {
+						return err
+					}
+				}
+			}
+		default:
+			panic("unreachable")
+		}
+	}
+	return nil
+}
+
 var responseDeliverTxBufferPool = amino.NewBufferPool()
 
 func MarshalResponseDeliverTxToAmino(tx *ResponseDeliverTx) ([]byte, error) {
@@ -386,6 +547,95 @@ func MarshalResponseBeginBlockToAmino(beginBlock *ResponseBeginBlock) ([]byte, e
 	}
 
 	return buf.Bytes(), nil
+}
+
+func (beginBlock ResponseBeginBlock) MarshalToAmino() ([]byte, error) {
+	return beginBlock.marshalToAminoWithSizeCompute2()
+}
+
+func (beginBlock ResponseBeginBlock) AminoSize() int {
+	var size int
+	for _, event := range beginBlock.Events {
+		_size := event.AminoSize()
+		size += 1 + amino.UvarintSize(uint64(_size)) + _size
+	}
+	return size
+}
+
+func (beginBlock ResponseBeginBlock) marshalToAmino() ([]byte, error) {
+	var buf = &bytes.Buffer{}
+	err := beginBlock.MarshalToAminoToBuffer(buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (beginBlock ResponseBeginBlock) marshalToAminoWithSizeCompute() ([]byte, error) {
+	var buf = &bytes.Buffer{}
+	buf.Grow(beginBlock.AminoSize())
+	err := beginBlock.MarshalToAminoToBuffer(buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (beginBlock ResponseBeginBlock) marshalToAminoWithSizeCompute2() ([]byte, error) {
+	var buf = &bytes.Buffer{}
+	buf.Grow(beginBlock.AminoSize())
+	fieldKey := byte(1<<3 | 2)
+	for i := 0; i < len(beginBlock.Events); i++ {
+		err := buf.WriteByte(fieldKey)
+		if err != nil {
+			return nil, err
+		}
+		lenAfterKey := buf.Len()
+		event := beginBlock.Events[i]
+		eventSize := event.AminoSize()
+		err = amino.EncodeUvarintToBuffer(buf, uint64(eventSize))
+		if err != nil {
+			return nil, err
+		}
+		lenBeforeValue := buf.Len()
+		err = event.MarshalToAminoToBuffer(buf)
+		if err != nil {
+			return nil, err
+		}
+		lenAfterValue := buf.Len()
+		if lenAfterValue-lenBeforeValue != eventSize {
+			buf.Truncate(lenAfterKey)
+			data, err := event.MarshalToAmino()
+			if err != nil {
+				return nil, err
+			}
+			err = amino.EncodeByteSliceToBuffer(buf, data)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return buf.Bytes(), nil
+}
+
+func (beginBlock ResponseBeginBlock) MarshalToAminoToBuffer(buf *bytes.Buffer) error {
+	fieldKey := byte(1<<3 | 2)
+	for i := 0; i < len(beginBlock.Events); i++ {
+		err := buf.WriteByte(fieldKey)
+		if err != nil {
+			return err
+		}
+		data, err := beginBlock.Events[i].MarshalToAmino()
+		if err != nil {
+			return err
+		}
+		err = amino.EncodeByteSliceToBuffer(buf, data)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func MarshalConsensusParamsToAmino(params ConsensusParams) (data []byte, err error) {

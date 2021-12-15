@@ -12,39 +12,147 @@ import (
 
 var cdc = amino.NewCodec()
 
-func TestEventAmino(t *testing.T) {
-	var events = []Event{
-		{},
-		{
-			Type: "test",
+var testEvents = []Event{
+	{},
+	{
+		Type: "test",
+	},
+	{
+		Attributes: []kv.Pair{
+			{Key: []byte("key"), Value: []byte("value")},
+			{Key: []byte("key2"), Value: []byte("value2")},
 		},
-		{
-			Attributes: []kv.Pair{
-				{Key: []byte("key"), Value: []byte("value")},
-				{Key: []byte("key2"), Value: []byte("value2")},
+	},
+	{
+		Type: "test",
+		Attributes: []kv.Pair{
+			{Key: []byte("key"), Value: []byte("value")},
+			{Key: []byte("key2"), Value: []byte("value2")},
+			{},
+		},
+	},
+	{
+		Type: "longTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongType",
+		Attributes: []kv.Pair{
+			{
+				Key:   []byte("longKeylongKeylongKeylongKeylongKeylongKeylongKeylongKeylongKeylongKeylongKeylongKeylongKeylongKeylongKeylongKeylongKeylongKeylongKey"),
+				Value: []byte("longvaluelongvaluelongvaluelongvaluelongvaluelongvaluelongvaluelongvaluelongvaluelongvaluelongvaluelongvaluelongvaluelongvaluelongvaluelongvalue"),
 			},
+			{},
 		},
-		{
-			Type: "test",
-			Attributes: []kv.Pair{
-				{Key: []byte("key"), Value: []byte("value")},
-				{Key: []byte("key2"), Value: []byte("value2")},
-				{},
-			},
-		},
-		{
-			Attributes: []kv.Pair{},
-		},
-	}
+	},
+	{
+		Attributes: []kv.Pair{},
+	},
+	{
+		XXX_unrecognized:     []byte{0x01, 0x02, 0x03},
+		XXX_sizecache:        10,
+		XXX_NoUnkeyedLiteral: struct{}{},
+	},
+}
 
-	for _, event := range events {
+func TestEventAmino(t *testing.T) {
+	for _, event := range testEvents {
 		expect, err := cdc.MarshalBinaryBare(event)
 		require.NoError(t, err)
 
 		actual, err := MarshalEventToAmino(event)
 		require.NoError(t, err)
 		require.EqualValues(t, expect, actual)
+
+		bz1, err := event.marshalToAmino()
+		require.NoError(t, err)
+
+		bz2, err := event.marshalToAminoWithPool()
+		require.NoError(t, err)
+
+		bz3, err := event.marshalToAminoWithSizeCompute()
+		require.NoError(t, err)
+
+		bz4, err := event.marshalToAminoWithSizeCompute2()
+		require.NoError(t, err)
+
+		require.EqualValues(t, expect, bz1)
+		require.EqualValues(t, expect, bz2)
+		require.EqualValues(t, expect, bz3)
+		require.EqualValues(t, expect, bz4)
+
+		require.EqualValues(t, len(expect), event.AminoSize())
 	}
+}
+
+func BenchmarkEventAmino(b *testing.B) {
+	b.Run("amino", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			for _, event := range testEvents {
+				_, err := cdc.MarshalBinaryBare(event)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		}
+	})
+
+	b.Run("marshaller", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			for _, event := range testEvents {
+				_, err := MarshalEventToAmino(event)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		}
+	})
+
+	b.Run("marshall", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			for _, event := range testEvents {
+				_, err := event.marshalToAmino()
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		}
+	})
+
+	b.Run("marshall with size", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			for _, event := range testEvents {
+				_, err := event.marshalToAminoWithSizeCompute()
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		}
+	})
+
+	b.Run("marshall with pool", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			for _, event := range testEvents {
+				_, err := event.marshalToAminoWithPool()
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		}
+	})
+
+	b.Run("marshall with size 2", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			for _, event := range testEvents {
+				_, err := event.marshalToAminoWithSizeCompute2()
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		}
+	})
 }
 
 func TestPubKeyAmino(t *testing.T) {
@@ -243,12 +351,65 @@ func TestResponseDeliverTxAmino(t *testing.T) {
 }
 
 func TestResponseBeginBlockAmino(t *testing.T) {
-	var resps = []*ResponseBeginBlock{
+	var testRespBeginBlock = []*ResponseBeginBlock{
 		{},
 		{
 			Events: []Event{
 				{
-					Type: "test",
+					Type: "longTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongType",
+					Attributes: []kv.Pair{
+						{Key: []byte("keykeykeykeykeykeykeykeykeykeykeykeykeykeykeykey"), Value: []byte("valuevaluevaluevaluevaluevaluevaluevaluevaluevaluevaluevaluevalue")},
+					},
+				},
+			},
+		},
+		{
+			Events: []Event{},
+		},
+		{
+			Events: []Event{{}},
+		},
+		{
+			XXX_unrecognized:     []byte{0x01, 0x02, 0x03},
+			XXX_sizecache:        10,
+			XXX_NoUnkeyedLiteral: struct{}{},
+		},
+	}
+	for _, resp := range testRespBeginBlock {
+		expect, err := cdc.MarshalBinaryBare(resp)
+		require.NoError(t, err)
+
+		actual, err := MarshalResponseBeginBlockToAmino(resp)
+		require.NoError(t, err)
+		require.EqualValues(t, expect, actual)
+
+		bz1, err := resp.marshalToAmino()
+		require.NoError(t, err)
+
+		bz2, err := resp.marshalToAminoWithSizeCompute()
+		require.NoError(t, err)
+
+		bz3, err := resp.marshalToAminoWithSizeCompute2()
+		require.NoError(t, err)
+
+		require.EqualValues(t, expect, bz1)
+		require.EqualValues(t, expect, bz2)
+		require.EqualValues(t, expect, bz3)
+
+		require.EqualValues(t, len(expect), resp.AminoSize())
+	}
+}
+
+func BenchmarkResponseBeginBlockAmino(b *testing.B) {
+	var testRespBeginBlock = []*ResponseBeginBlock{
+		{},
+		{
+			Events: []Event{
+				{
+					Type: "longTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongTypelongType",
+					Attributes: []kv.Pair{
+						{Key: []byte("keykeykeykeykeykeykeykeykeykeykeykeykeykeykeykey"), Value: []byte("valuevaluevaluevaluevaluevaluevaluevaluevaluevaluevaluevaluevalue")},
+					},
 				},
 			},
 		},
@@ -259,14 +420,68 @@ func TestResponseBeginBlockAmino(t *testing.T) {
 			Events: []Event{{}},
 		},
 	}
-	for _, resp := range resps {
-		expect, err := cdc.MarshalBinaryBare(resp)
-		require.NoError(t, err)
 
-		actual, err := MarshalResponseBeginBlockToAmino(resp)
-		require.NoError(t, err)
-		require.EqualValues(t, expect, actual)
-	}
+	b.ResetTimer()
+
+	b.Run("amino", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			b.ReportAllocs()
+			for _, resp := range testRespBeginBlock {
+				_, err := cdc.MarshalBinaryBare(resp)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		}
+	})
+
+	b.Run("marshaller", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			b.ReportAllocs()
+			for _, resp := range testRespBeginBlock {
+				_, err := MarshalResponseBeginBlockToAmino(resp)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		}
+	})
+
+	b.Run("marshal", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			b.ReportAllocs()
+			for _, resp := range testRespBeginBlock {
+				_, err := resp.marshalToAmino()
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		}
+	})
+
+	b.Run("marshal with size", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			b.ReportAllocs()
+			for _, resp := range testRespBeginBlock {
+				_, err := resp.marshalToAminoWithSizeCompute()
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		}
+	})
+
+	b.Run("marshal with size 2", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			b.ReportAllocs()
+			for _, resp := range testRespBeginBlock {
+				_, err := resp.marshalToAminoWithSizeCompute2()
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		}
+	})
 }
 
 func TestResponseEndBlockAmino(t *testing.T) {

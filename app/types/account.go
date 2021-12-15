@@ -48,23 +48,19 @@ func (acc EthAccount) MarshalToAmino() ([]byte, error) {
 	var buf = ethAccountBufferPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	defer ethAccountBufferPool.Put(buf)
-	for pos := 1; pos < 3; pos++ {
-		lBeforeKey := buf.Len()
-		var noWrite bool
-		posByte, err := amino.EncodeProtoPosAndTypeMustOneByte(pos, amino.Typ3_ByteLength)
-		if err != nil {
-			return nil, err
-		}
-		err = buf.WriteByte(posByte)
-		if err != nil {
-			return nil, err
-		}
 
+	var fieldKeysType = [2]byte{1<<3 | 2, 2<<3 | 2}
+	var err error
+
+	for pos := 1; pos <= 2; pos++ {
 		switch pos {
 		case 1:
 			if acc.BaseAccount == nil {
-				noWrite = true
 				break
+			}
+			err = buf.WriteByte(fieldKeysType[pos-1])
+			if err != nil {
+				return nil, err
 			}
 			data, err := acc.BaseAccount.MarshalToAmino()
 			if err != nil {
@@ -81,10 +77,13 @@ func (acc EthAccount) MarshalToAmino() ([]byte, error) {
 		case 2:
 			codeHashLen := len(acc.CodeHash)
 			if codeHashLen == 0 {
-				noWrite = true
 				break
 			}
-			err := amino.EncodeUvarintToBuffer(buf, uint64(codeHashLen))
+			err = buf.WriteByte(fieldKeysType[pos-1])
+			if err != nil {
+				return nil, err
+			}
+			err = amino.EncodeUvarintToBuffer(buf, uint64(codeHashLen))
 			if err != nil {
 				return nil, err
 			}
@@ -94,9 +93,6 @@ func (acc EthAccount) MarshalToAmino() ([]byte, error) {
 			}
 		default:
 			panic("unreachable")
-		}
-		if noWrite {
-			buf.Truncate(lBeforeKey)
 		}
 	}
 	return amino.GetBytesBufferCopy(buf), nil

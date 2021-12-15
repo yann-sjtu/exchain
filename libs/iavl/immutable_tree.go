@@ -155,6 +155,7 @@ func (t *ImmutableTree) Get(key []byte) (index int64, value []byte) {
 	if t.root == nil {
 		return 0, nil
 	}
+	// get node hash by key
 	return t.root.get(t, key)
 }
 

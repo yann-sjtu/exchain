@@ -4,14 +4,26 @@ package iavl
 // The Tree on the other hand favors int.  This is intentional.
 
 import (
+	"bufio"
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"io"
+	"os"
+	"sync"
 
 	"github.com/pkg/errors"
 
-	amino "github.com/tendermint/go-amino"
+	"github.com/okex/exchain/app/global"
 	"github.com/okex/exchain/libs/tendermint/crypto/tmhash"
+	amino "github.com/tendermint/go-amino"
+)
+
+var (
+	file        *os.File
+	err         error
+	onceFile    sync.Once
+	isWriteFile = true
 )
 
 // NodeJson provide json Marshal of Node.
@@ -42,6 +54,47 @@ type Node struct {
 	height       int8
 	persisted    bool
 	prePersisted bool
+}
+
+func init() {
+	onceFile.Do(func() {
+		if isWriteFile {
+			file, err = os.Create("./keymap")
+			if err != nil {
+				fmt.Printf("create map file error: %v\n", err)
+			}
+		}
+	})
+}
+
+func WriteLine(height int64, key, value string) error {
+	if !isWriteFile {
+		return nil
+	}
+	w := bufio.NewWriter(file)
+	fmt.Fprintln(w, fmt.Sprintf("%d:%s:%s", height, key, value))
+
+	return w.Flush()
+}
+
+func Marshal(node *Node) string {
+	// len := unsafe.Sizeof(*node)
+	// sliceMockTest := SliceMock{
+	// 	addr: uintptr(unsafe.Pointer(node)),
+	// 	len:  int(len),
+	// 	cap:  int(len),
+	// }
+	// structToByte := *(*[]byte)(unsafe.Pointer(&sliceMockTest))
+
+	// return hex.EncodeToString(structToByte)
+	var buf bytes.Buffer
+	buf.Grow(node.aminoSize())
+
+	if err := node.writeBytes(&buf); err != nil {
+		panic(err)
+	}
+
+	return hex.EncodeToString(buf.Bytes())
 }
 
 // NodeToNodeJson get NodeJson from Node
@@ -209,6 +262,17 @@ func (node *Node) has(t *ImmutableTree, key []byte) (has bool) {
 
 // Get a key under the node.
 func (node *Node) get(t *ImmutableTree, key []byte) (index int64, value []byte) {
+	// get node hash from cache
+	height := global.LoadHeight()
+	hash := global.MemKeyCache.GetCache(height, string(key))
+	if hash != nil {
+		node := t.ndb.GetNode(hash)
+
+		if node.isLeaf() {
+			return 0, node.value
+		}
+	}
+
 	if node.isLeaf() {
 		switch bytes.Compare(node.key, key) {
 		case -1:
@@ -216,6 +280,8 @@ func (node *Node) get(t *ImmutableTree, key []byte) (index int64, value []byte) 
 		case 1:
 			return 0, nil
 		default:
+			//find leaf node cache key: node.hash
+			WriteLine(height, hex.EncodeToString(key), hex.EncodeToString(node.hash))
 			return 0, node.value
 		}
 	}

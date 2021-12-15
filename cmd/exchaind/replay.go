@@ -3,16 +3,15 @@ package main
 import (
 	"bufio"
 	"encoding/hex"
-	"errors"
 	"fmt"
-	"strconv"
-	"strings"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"path/filepath"
 	"runtime/pprof"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/okex/exchain/app/config"
@@ -259,20 +258,20 @@ func doReplay(ctx *server.Context, state sm.State, stateStoreDB dbm.DB,
 
 	// Replay blocks up to the latest in the blockstore.
 
-	unmarshal := func(body string) *tmiavl.Node {
-		b, err := hex.DecodeString(body)
-		if err != nil {
-			panic(errors.New("decode error"))
-		}
-		n, err := tmiavl.MakeNode(b)
-		if err != nil {
-			e := fmt.Sprintf("make node error1 %v,%s,%d", err, body, len(b))
-			panic(errors.New(e))
-		}
-		return n
-		//return (*Node)(unsafe.Pointer(&b[0]))
-	}
-	
+	// unmarshal := func(body string) *tmiavl.Node {
+	// 	b, err := hex.DecodeString(body)
+	// 	if err != nil {
+	// 		panic(errors.New("decode error"))
+	// 	}
+	// 	n, err := tmiavl.MakeNode(b)
+	// 	if err != nil {
+	// 		e := fmt.Sprintf("make node error1 %v,%s,%d", err, body, len(b))
+	// 		panic(errors.New(e))
+	// 	}
+	// 	return n
+	// 	//return (*Node)(unsafe.Pointer(&b[0]))
+	// }
+
 	loadFromFile := func() error {
 		file, err := os.Open("./keymap")
 		if err != nil {
@@ -286,14 +285,18 @@ func doReplay(ctx *server.Context, state sm.State, stateStoreDB dbm.DB,
 		for scanner.Scan() {
 			line := scanner.Text()
 			vs := strings.Split(line, ":")
-			v := vs[2] 
+			v := vs[2]
 
 			if vs[2][len(vs[2])-1] == '\n' {
 				v = vs[2][:len(vs[2])-1]
 			}
-			node := unmarshal(v)
-			he, _ := strconv.ParseInt(vs[0], 10, 64)  
-			global.MemKeyCache.SetCache(he, vs[1], node)
+			//node := unmarshal(v)
+			he, _ := strconv.ParseInt(vs[0], 10, 64)
+			k, _ := hex.DecodeString(vs[1])
+
+			//global.MemKeyCache.SetCache(he /*vs[1]*/, string(k), node)
+			vv, _ := hex.DecodeString(v)
+			global.MemKeyCache.SetCache(he, string(k), vv)
 		}
 
 		if err := scanner.Err(); err != nil {
@@ -304,7 +307,7 @@ func doReplay(ctx *server.Context, state sm.State, stateStoreDB dbm.DB,
 	}
 
 	loadFromFile()
-	
+
 	if lastBlockHeight == state.LastBlockHeight+1 {
 		abciResponses, err := sm.LoadABCIResponses(stateStoreDB, lastBlockHeight)
 		panicError(err)

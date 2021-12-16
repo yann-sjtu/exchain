@@ -2,10 +2,12 @@ package keeper
 
 import (
 	"bytes"
-	authexported "github.com/okex/exchain/libs/cosmos-sdk/x/auth/exported"
 	"strconv"
 	"testing"
 	"time"
+
+	authexported "github.com/okex/exchain/libs/cosmos-sdk/x/auth/exported"
+	"github.com/okex/exchain/x/common/monitor"
 
 	"github.com/okex/exchain/libs/cosmos-sdk/codec"
 	"github.com/okex/exchain/libs/cosmos-sdk/store"
@@ -14,12 +16,12 @@ import (
 	"github.com/okex/exchain/libs/cosmos-sdk/x/bank"
 	"github.com/okex/exchain/libs/cosmos-sdk/x/crisis"
 	"github.com/okex/exchain/libs/cosmos-sdk/x/supply"
-	"github.com/stretchr/testify/require"
 	abci "github.com/okex/exchain/libs/tendermint/abci/types"
 	"github.com/okex/exchain/libs/tendermint/crypto"
 	"github.com/okex/exchain/libs/tendermint/crypto/ed25519"
 	"github.com/okex/exchain/libs/tendermint/libs/log"
 	tmtypes "github.com/okex/exchain/libs/tendermint/types"
+	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"
 
 	"github.com/okex/exchain/x/gov/types"
@@ -167,7 +169,7 @@ func CreateTestInput(
 
 	// for staking/distr rollback to cosmos-sdk
 	stakingKeeper := staking.NewKeeper(cdc, stakingSk, supplyKeeper,
-		pk.Subspace(staking.DefaultParamspace))
+		pk.Subspace(staking.DefaultParamspace), monitor.NopStakingMetric())
 
 	stakingKeeper.SetParams(ctx, staking.DefaultParams())
 	pk.SetStakingKeeper(stakingKeeper)

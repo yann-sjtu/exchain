@@ -19,12 +19,12 @@ import (
 	"testing"
 	"time"
 
-	sdk "github.com/okex/exchain/libs/cosmos-sdk/types"
 	ethcmn "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/okex/exchain/app/rpc/types"
 	"github.com/okex/exchain/app/rpc/websockets"
+	sdk "github.com/okex/exchain/libs/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/websocket"
 )
@@ -1519,4 +1519,38 @@ func sendTxs(t *testing.T, wg *sync.WaitGroup, contractAddrs ...string) {
 			time.Sleep(time.Second * 1)
 		}
 	}
+}
+
+func TestEth_EthResend(t *testing.T) {
+	tx := make(map[string]string)
+	tx["from"] = "0x" + fmt.Sprintf("%x", from)
+	tx["to"] = "0x0000000000000000000000000000000012341234"
+	tx["value"] = "0x16345785d8a0000"
+	tx["nonce"] = "0x2"
+	tx["gasLimit"] = "0x5208"
+	tx["gasPrice"] = "0x55ae82600"
+	param := []interface{}{tx, "0x1", "0x2"}
+	_, rpcerror := CallWithError("eth_resend", param)
+	require.Equal(t, "transaction 0x3bf28b46ee1bb3925e50ec6003f899f95913db4b0f579c4e7e887efebf9ecd1b not found", fmt.Sprintf("%s", rpcerror))
+}
+
+func TestEth_FeeHistory(t *testing.T) {
+	params := make([]interface{}, 0)
+	params = append(params, 4)
+	params = append(params, "0x1c")
+	params = append(params, []int{25, 75})
+
+	rpcRes := Call(t, "eth_feeHistory", params)
+
+	info := make(map[string]interface{})
+	err := json.Unmarshal(rpcRes.Result, &info)
+	require.NoError(t, err)
+	reward := info["reward"].([]interface{})
+	baseFeePerGas := info["baseFeePerGas"].([]interface{})
+	gasUsedRatio := info["gasUsedRatio"].([]interface{})
+
+	require.Equal(t, info["oldestBlock"].(string), "0x18")
+	require.Equal(t, 4, len(gasUsedRatio))
+	require.Equal(t, 4, len(baseFeePerGas))
+	require.Equal(t, 4, len(reward))
 }

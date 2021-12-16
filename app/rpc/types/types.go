@@ -166,3 +166,16 @@ type SignTransactionResult struct {
 	Raw hexutil.Bytes           `json:"raw"`
 	Tx  *evmtypes.MsgEthereumTx `json:"tx"`
 }
+
+type FeeHistoryResult struct {
+	OldestBlock  *hexutil.Big     `json:"oldestBlock"`
+	Reward       [][]*hexutil.Big `json:"reward,omitempty"`
+	BaseFee      []*hexutil.Big   `json:"baseFeePerGas,omitempty"`
+	GasUsedRatio []float64        `json:"gasUsedRatio"`
+}
+
+type OneFeeHistory struct {
+	BaseFee      *int64   // base fee  for each block
+	Reward       []*int64 // each element of the array will have the tip provided to miners for the percentile given
+	GasUsedRatio float64  // the ratio of gas used to the gas limit for each block
+}

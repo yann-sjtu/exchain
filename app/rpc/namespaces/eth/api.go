@@ -1613,7 +1613,7 @@ func (api *PublicEthereumAPI) FillTransaction(args rpctypes.SendTxArgs) (*rpctyp
 	monitor := monitor.GetMonitor("eth_sendTransaction", api.logger, api.Metrics).OnBegin()
 	defer monitor.OnEnd("args", args)
 
-	key, exist := rpctypes.GetKeyByAddress(api.keys, *args.From)
+	_, exist := rpctypes.GetKeyByAddress(api.keys, *args.From)
 	if !exist {
 		api.logger.Debug("failed to find key in keyring", "key", args.From)
 		return nil, fmt.Errorf("failed to find key(%s) in keyring", args.From)
@@ -1641,4 +1641,73 @@ func (api *PublicEthereumAPI) FillTransaction(args rpctypes.SendTxArgs) (*rpctyp
 		Raw: data,
 		Tx:  tx,
 	}, nil
+}
+
+func (e *PublicEthereumAPI) FeeHistory(blockCount uint64, lastBlock int64, rewardPercentiles []float64) (*rpctypes.FeeHistoryResult, error) {
+	//e.logger.Debug("eth_feeHistory")
+	return e.backend.FeeHistory(blockCount, lastBlock, rewardPercentiles)
+}
+
+// Resend accepts an existing transaction and a new gas price and limit. It will remove
+// the given transaction from the pool and reinsert it with the new gas price and limit.
+func (e *PublicEthereumAPI) Resend(ctx context.Context, args evmtypes.TransactionArgs, gasPrice *hexutil.Big, gasLimit *hexutil.Uint64) (common.Hash, error) {
+	e.logger.Debug("eth_resend", "args", args.String())
+	if args.Nonce == nil {
+		return common.Hash{}, fmt.Errorf("missing transaction nonce in transaction spec")
+	}
+
+	args, err := e.backend.SetTxDefaults(args)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	matchTx := args.ToTransaction().AsTransaction()
+
+	// Before replacing the old transaction, ensure the _new_ transaction fee is reasonable.
+	price := matchTx.GasPrice()
+	if gasPrice != nil {
+		price = gasPrice.ToInt()
+	}
+	gas := matchTx.Gas()
+	if gasLimit != nil {
+		gas = uint64(*gasLimit)
+	}
+	if err := checkTxFee(price, gas, e.backend.RPCTxFeeCap()); err != nil {
+		return common.Hash{}, err
+	}
+
+	pending, err := e.backend.PendingTransactions()
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	for _, tx := range pending {
+		p, err := evmtypes.UnwrapEthereumMsg(tx)
+		if err != nil {
+			// not valid ethereum tx
+			continue
+		}
+
+		pTx := p.AsTransaction()
+
+		wantSigHash := e.signer.Hash(matchTx)
+		pFrom, err := ethtypes.Sender(e.signer, pTx)
+		if err != nil {
+			continue
+		}
+
+		if pFrom == *args.From && e.signer.Hash(pTx) == wantSigHash {
+			// Match. Re-sign and send the transaction.
+			if gasPrice != nil && (*big.Int)(gasPrice).Sign() != 0 {
+				args.GasPrice = gasPrice
+			}
+			if gasLimit != nil && *gasLimit != 0 {
+				args.Gas = gasLimit
+			}
+
+			return e.backend.SendTransaction(args) // TODO: this calls SetTxDefaults again, refactor to avoid calling it twice
+		}
+	}
+
+	return common.Hash{}, fmt.Errorf("transaction %#x not found", matchTx.Hash())
 }

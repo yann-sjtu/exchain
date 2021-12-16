@@ -1604,3 +1604,41 @@ func (api *PublicEthereumAPI) saveZeroAccount(address common.Address) {
 	zeroAccount.SetBalance(sdk.DefaultBondDenom, sdk.ZeroDec())
 	api.watcherBackend.CommitAccountToRpcDb(zeroAccount)
 }
+
+// FillTransaction fills the defaults (nonce, gas, gasPrice or 1559 fields)
+// on a given unsigned transaction, and returns it to the caller for further
+// processing (signing + broadcast).
+func (api *PublicEthereumAPI) FillTransaction(args rpctypes.SendTxArgs) (*rpctypes.SignTransactionResult, error) {
+
+	monitor := monitor.GetMonitor("eth_sendTransaction", api.logger, api.Metrics).OnBegin()
+	defer monitor.OnEnd("args", args)
+
+	key, exist := rpctypes.GetKeyByAddress(api.keys, *args.From)
+	if !exist {
+		api.logger.Debug("failed to find key in keyring", "key", args.From)
+		return nil, fmt.Errorf("failed to find key(%s) in keyring", args.From)
+	}
+
+	// Mutex lock the address' nonce to avoid assigning it to multiple requests
+	if args.Nonce == nil {
+		api.nonceLock.LockAddr(*args.From)
+		defer api.nonceLock.UnlockAddr(*args.From)
+	}
+
+	// Assemble transaction from fields
+	tx, err := api.generateFromArgs(args)
+	if err != nil {
+		api.logger.Debug("failed to generate tx", "error", err)
+		return nil, err
+	}
+
+	data, err := tx.Data.MarshalAmino()
+	if err != nil {
+		return nil, err
+	}
+
+	return &rpctypes.SignTransactionResult{
+		Raw: data,
+		Tx:  tx,
+	}, nil
+}

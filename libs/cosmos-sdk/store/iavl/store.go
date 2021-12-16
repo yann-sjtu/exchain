@@ -40,8 +40,9 @@ var onceDB2 sync.Once
 
 // Store Implements types.KVStore and CommitKVStore.
 type Store struct {
-	tree Tree
-	db   dbm.DB
+	tree  Tree
+	db    dbm.DB
+	cache map[string][]byte
 }
 
 func (st *Store) StopStore() {
@@ -92,8 +93,9 @@ func LoadStoreWithInitialVersion(db dbm.DB, prefix string, id types.CommitID, la
 
 	prefixDB := dbm.NewPrefixDB(db2, []byte(prefix))
 	return &Store{
-		tree: tree,
-		db:   prefixDB,
+		tree:  tree,
+		db:    prefixDB,
+		cache: make(map[string][]byte, 100000),
 	}, nil
 }
 
@@ -185,14 +187,30 @@ func (st *Store) CacheWrapWithTrace(w io.Writer, tc types.TraceContext) types.Ca
 	return cachekv.NewStore(tracekv.NewStore(st, w, tc))
 }
 
+func (st *Store) getCache(key string) (value []byte, ok bool) {
+	value, ok = st.cache[key]
+	return
+}
+
+func (st *Store) addCache(key string, value []byte) {
+	st.cache[key] = value
+}
+
 // Implements types.KVStore.
 func (st *Store) Set(key, value []byte) {
 	types.AssertValidValue(value)
-	st.db.SetSync(key, value)
+	strKey := string(key)
+	st.addCache(strKey, value)
+	//st.db.SetSync(key, value)
 }
 
 // Implements types.KVStore.
 func (st *Store) Get(key []byte) []byte {
+	strKey := string(key)
+	if cacheVal, ok := st.getCache(strKey); ok {
+		return cacheVal
+	}
+
 	value, err := st.db.Get(key)
 	if err != nil {
 		return nil
@@ -200,11 +218,17 @@ func (st *Store) Get(key []byte) []byte {
 	if len(value) == 0 {
 		return nil
 	}
+
+	st.addCache(strKey, value)
 	return value
 }
 
 // Implements types.KVStore.
 func (st *Store) Has(key []byte) (exists bool) {
+	strKey := string(key)
+	if _, ok := st.getCache(strKey); ok {
+		return true
+	}
 	ok, err := st.db.Has(key)
 	if err != nil {
 		return false

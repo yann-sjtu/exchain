@@ -214,14 +214,15 @@ func (st *Store) Has(key []byte) (exists bool) {
 
 // Implements types.KVStore.
 func (st *Store) Delete(key []byte) {
-	st.tree.Remove(key)
+	// st.tree.Remove(key)
 }
 
 // DeleteVersions deletes a series of versions from the MutableTree. An error
 // is returned if any single version is invalid or the delete fails. All writes
 // happen in a single batch with a single commit.
 func (st *Store) DeleteVersions(versions ...int64) error {
-	return st.tree.DeleteVersions(versions...)
+	// return st.tree.DeleteVersions(versions...)
+	return nil
 }
 
 // Implements types.KVStore.

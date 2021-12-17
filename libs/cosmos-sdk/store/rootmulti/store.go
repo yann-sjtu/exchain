@@ -387,7 +387,11 @@ func (rs *Store) LastCommitID() types.CommitID {
 func (rs *Store) Commit() types.CommitID {
 	previousHeight := rs.lastCommitInfo.Version
 	version := previousHeight + 1
-	//rs.lastCommitInfo = commitStores(version, rs.stores)
+	//rs.lastCommitInfo = commitStores(version, )
+	for _, store := range rs.stores {
+		store.Commit()
+	}
+
 	lastStores := rs.lastCommitInfo.StoreInfos
 	rs.lastCommitInfo = commitInfo{
 		Version:    version,

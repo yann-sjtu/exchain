@@ -163,7 +163,7 @@ func (app *BaseApp) EndBlock(req abci.RequestEndBlock) (res abci.ResponseEndBloc
 	}
 	serialRun := GetTimeOfSerial() + app.timeOfSerial
 	parallelRun := app.timeOfParallel - serialRun
-	runMsgTime := app.timeOfParallel - app.timeOfRunMsg
+	runMsgTime := app.timeOfRunMsg - app.timeOfParallel
 
 	app.TotalParallelTime += parallelRun
 	app.TotalSerialTime += serialRun

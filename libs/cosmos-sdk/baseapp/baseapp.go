@@ -718,6 +718,7 @@ func (app *BaseApp) pinAction(isParallel bool, isPinRunMsg, isStart bool, mode r
 	}
 	if isPinRunMsg {
 		app.timeOfRunMsg = getNowTimeMs()
+		return
 	}
 	if isParallel {
 		if isStart {

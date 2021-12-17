@@ -180,9 +180,11 @@ type BaseApp struct { // nolint: maligned
 
 	timeOfParallel int64
 	timeOfSerial   int64
+	timeOfRunMsg   int64
 
 	TotalParallelTime int64
 	TotalSerialTime   int64
+	TotalRunMsg       int64
 
 	startOfParallel int64
 	startOfSerial   int64
@@ -710,9 +712,12 @@ func getNowTimeMs() int64 {
 	return time.Now().UnixNano() / 1e6
 }
 
-func (app *BaseApp) pinAction(isParallel bool, isStart bool, mode runTxMode) {
+func (app *BaseApp) pinAction(isParallel bool, isPinRunMsg, isStart bool, mode runTxMode) {
 	if mode != runTxModeDeliver {
 		return
+	}
+	if isPinRunMsg {
+		app.timeOfRunMsg = getNowTimeMs()
 	}
 	if isParallel {
 		if isStart {
@@ -738,6 +743,7 @@ func (app *BaseApp) resetTime() {
 	app.timeOfParallel = 0
 	app.timeOfParallel = 0
 	app.startOfParallel = 0
+	app.timeOfRunMsg = 0
 	ResetTimeOfSerial()
 }
 
@@ -751,7 +757,7 @@ func (app *BaseApp) resetTime() {
 func (app *BaseApp) runTx(mode runTxMode, txBytes []byte, tx sdk.Tx, height int64) (gInfo sdk.GasInfo, result *sdk.Result, msCacheList sdk.CacheMultiStore, err error) {
 
 	app.pin(InitCtx, true, mode)
-	app.pinAction(true, true, mode)
+	app.pinAction(true, false, true, mode)
 
 	// NOTE: GasWanted should be returned by the AnteHandler. GasUsed is
 	// determined by the GasMeter. We need access to the context to get the gas
@@ -913,7 +919,7 @@ func (app *BaseApp) runTx(mode runTxMode, txBytes []byte, tx sdk.Tx, height int6
 		}
 
 		if err != nil {
-			app.pinAction(true, false, mode)
+			app.pinAction(true, false, false, mode)
 			return gInfo, nil, nil, err
 		}
 
@@ -941,9 +947,10 @@ func (app *BaseApp) runTx(mode runTxMode, txBytes []byte, tx sdk.Tx, height int6
 	// Result if any single message fails or does not have a registered Handler.
 
 	defer func() {
-		app.pinAction(true, false, mode)
-		app.pinAction(false, false, mode)
+		app.pinAction(true, false, false, mode)
+		app.pinAction(false, false, false, mode)
 	}()
+	app.pinAction(false, true, true, mode)
 	result, err = app.runMsgs(runMsgCtx, msgs, mode)
 	if err == nil && (mode == runTxModeDeliver) {
 		msCache.Write()
@@ -1001,9 +1008,8 @@ func (app *BaseApp) runMsgs(ctx sdk.Context, msgs []sdk.Msg, mode runTxMode) (*s
 		if handler == nil {
 			return nil, sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "unrecognized message route: %s; message index: %d", msgRoute, i)
 		}
-
 		msgResult, err := handler(ctx, msg)
-		app.pinAction(false, true, mode)
+		app.pinAction(false, false, true, mode)
 		if err != nil {
 			return nil, sdkerrors.Wrapf(err, "failed to execute message; message index: %d", i)
 		}

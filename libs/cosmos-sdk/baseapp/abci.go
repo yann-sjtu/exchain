@@ -163,11 +163,13 @@ func (app *BaseApp) EndBlock(req abci.RequestEndBlock) (res abci.ResponseEndBloc
 	}
 	serialRun := GetTimeOfSerial() + app.timeOfSerial
 	parallelRun := app.timeOfParallel - serialRun
+	runMsgTime := app.timeOfParallel - app.timeOfRunMsg
 
 	app.TotalParallelTime += parallelRun
 	app.TotalSerialTime += serialRun
+	app.TotalRunMsg += runMsgTime
 
-	trace.GetElapsedInfo().AddInfo(trace.PPRun, fmt.Sprintf("Serial Run<%dms>, Parallel Run<%dms>,Total[Serial<%dms>,Parallel<%dms>]", serialRun, parallelRun, app.TotalSerialTime, app.TotalParallelTime))
+	trace.GetElapsedInfo().AddInfo(trace.PPRun, fmt.Sprintf("Serial Run<%dms>, Parallel Run<%dms>, Parallel runMsg<%dms>, Total[Serial<%dms>,Parallel<%dms>, ParallelRunMsg<%dms>]", serialRun, parallelRun, runMsgTime, app.TotalSerialTime, app.TotalParallelTime, app.TotalRunMsg))
 
 	return
 }

@@ -154,12 +154,16 @@ func (st *Store) Commit() types.CommitID {
 	// clear cache
 	st.cache = make(map[string][]byte, 100000)
 
-	//hash, version, err := st.tree.SaveVersion()
-	//if err != nil {
-	//	panic(err)
-	//}
+	// save tree
+	hash, version, err := st.tree.SaveVersion()
+	if err != nil {
+		panic(err)
+	}
 
-	return types.CommitID{}
+	return types.CommitID{
+		Version: version,
+		Hash:    hash,
+	}
 }
 
 // Implements Committer.
@@ -210,7 +214,9 @@ func (st *Store) Set(key, value []byte) {
 	types.AssertValidValue(value)
 	strKey := string(key)
 	st.addCache(strKey, value)
-	//st.db.SetSync(key, value)
+
+	// tree set
+	st.tree.Set(key, value)
 }
 
 // Implements types.KVStore.
@@ -247,15 +253,14 @@ func (st *Store) Has(key []byte) (exists bool) {
 
 // Implements types.KVStore.
 func (st *Store) Delete(key []byte) {
-	// st.tree.Remove(key)
+	st.tree.Remove(key)
 }
 
 // DeleteVersions deletes a series of versions from the MutableTree. An error
 // is returned if any single version is invalid or the delete fails. All writes
 // happen in a single batch with a single commit.
 func (st *Store) DeleteVersions(versions ...int64) error {
-	// return st.tree.DeleteVersions(versions...)
-	return nil
+	return st.tree.DeleteVersions(versions...)
 }
 
 // Implements types.KVStore.

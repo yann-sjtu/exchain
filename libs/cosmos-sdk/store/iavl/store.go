@@ -142,8 +142,17 @@ func (st *Store) GetImmutable(version int64) (*Store, error) {
 // Commit commits the current store state and returns a CommitID with the new
 // version and hash.
 func (st *Store) Commit() types.CommitID {
+	// save tree
+	hash, version, err := st.tree.SaveVersion()
+	if err != nil {
+		panic(err)
+	}
+
 	if len(st.cache) == 0 {
-		return types.CommitID{}
+		return types.CommitID{
+			Version: version,
+			Hash:    hash,
+		}
 	}
 	batch := st.db.NewBatch()
 	defer batch.Close()
@@ -153,12 +162,6 @@ func (st *Store) Commit() types.CommitID {
 	batch.Write()
 	// clear cache
 	st.cache = make(map[string][]byte, 100000)
-
-	// save tree
-	hash, version, err := st.tree.SaveVersion()
-	if err != nil {
-		panic(err)
-	}
 
 	return types.CommitID{
 		Version: version,

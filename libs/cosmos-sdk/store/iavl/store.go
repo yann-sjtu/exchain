@@ -212,6 +212,10 @@ func (st *Store) addCache(key string, value []byte) {
 	st.cache[key] = value
 }
 
+func (st *Store) deleteCache(key string) {
+	delete(st.cache, key)
+}
+
 // Implements types.KVStore.
 func (st *Store) Set(key, value []byte) {
 	types.AssertValidValue(value)
@@ -257,6 +261,8 @@ func (st *Store) Has(key []byte) (exists bool) {
 // Implements types.KVStore.
 func (st *Store) Delete(key []byte) {
 	st.tree.Remove(key)
+	st.db.Delete(key)
+	st.deleteCache(string(key))
 }
 
 // DeleteVersions deletes a series of versions from the MutableTree. An error

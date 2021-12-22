@@ -176,7 +176,7 @@ which accepts a path for the resulting pprof file.
 	cmd.Flags().Bool(sdk.FlagMultiCache, false, "Enable multi cache")
 
 	cmd.Flags().Int(sdk.MaxAccInMultiCache, 0, "max acc in multi cache")
-	cmd.Flags().Int(sdk.MaxStorageInMultiCache, 0, "max storage in multi cache")
+	cmd.Flags().Int(sdk.MaxContractInMultiCache, 0, "max storage in multi cache")
 
 	// Don`t use cmd.Flags().*Var functions(such as cmd.Flags.IntVar) here, because it doesn't work with environment variables.
 	// Use setExternalPackageValue function instead.

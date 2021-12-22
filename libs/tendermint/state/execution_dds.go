@@ -39,8 +39,9 @@ func newDeltaContext() *DeltaContext {
 	dp.downloadDelta = types.EnableDownloadDelta()
 	dp.uploadDelta = types.EnableUploadDelta()
 
+
 	if dp.uploadDelta && dp.downloadDelta {
-		panic("")
+		panic("download delta is not allowed if upload delta enabled")
 	}
 
 	dp.deltas = &types.Deltas{}
@@ -62,7 +63,7 @@ func (dc *DeltaContext) init(l log.Logger) {
 	)
 
 	if dc.uploadDelta || dc.downloadDelta {
-		dc.deltaBroker = redis_cgi.NewRedisClient(types.RedisUrl(), l)
+		dc.deltaBroker = redis_cgi.NewRedisClient(types.RedisUrl(), types.RedisAuth(), l)
 		dc.logger.Info("Init delta broker", "url", types.RedisUrl())
 	}
 
@@ -79,11 +80,12 @@ func (dc *DeltaContext) reset() {
 	dc.deltas = &types.Deltas{}
 }
 
-func (dc *DeltaContext) postApplyDelta(height int64, abciResponses *ABCIResponses, res []byte) {
-	dc.logger.Info("Post apply delta", "applied", dc.useDeltas, "delta", dc.deltas, "gid", gorid.GoRId)
+func (dc *DeltaContext) postApplyBlock(height int64, abciResponses *ABCIResponses, res []byte) {
+
+	dc.logger.Info("Post applied block", "delta-applied", dc.useDeltas, "delta", dc.deltas, "gid", gorid.GoRId)
 
 	// rpc
-	if dc.useDeltas {
+	if dc.useDeltas && types.IsFastQuery() {
 		UseWatchData(dc.deltas.WatchBytes)
 	}
 
@@ -103,18 +105,19 @@ func (dc *DeltaContext) upload(height int64, abciResponses *ABCIResponses, res [
 		return
 	}
 
+	wd := GetWatchData()
 	// for outDelta log
 	dc.deltas = &types.Deltas {
 		ABCIRsp:     abciResponsesBytes,
 		DeltasBytes: res,
-		WatchBytes:  GetWatchData(),
+		WatchBytes:  wd,
 		Height:      height,
 	}
 
 	delta4Upload := &types.Deltas {
 		ABCIRsp:     abciResponsesBytes,
 		DeltasBytes: res,
-		WatchBytes:  GetWatchData(),
+		WatchBytes:  wd,
 		Height:      height,
 		Version:     types.DeltaVersion,
 	}
@@ -129,27 +132,33 @@ func (dc *DeltaContext) uploadData(deltas *types.Deltas) {
 
 	// todo get distributed lock, otherwise return
 
+	t0 := time.Now()
 	// marshal deltas to bytes
 	deltaBytes, err := deltas.Marshal()
 	if err != nil {
 		return
 	}
 
+	t1 := time.Now()
 	// compress
-	compressBytes, err := dc.compressBroker.DefaultCompress(deltaBytes)
-	if err != nil {
-		return
-	}
+	//compressBytes, err := dc.compressBroker.DefaultCompress(deltaBytes)
+	//if err != nil {
+	//	return
+	//}
 
+	t2 := time.Now()
 	// set into dds
-	if err = dc.deltaBroker.SetDeltas(deltas.Height, compressBytes); err != nil {
+	if err = dc.deltaBroker.SetDeltas(deltas.Height, deltaBytes); err != nil {
 		dc.logger.Error("Upload delta", "height", deltas.Height, "error", err)
 		return
 	}
+	t3 := time.Now()
 	dc.logger.Info("Upload delta",
 		"deltas", deltas,
-		"gid", gorid.GoRId,
-	)
+		"marshal", t1.Sub(t0),
+		"compress", t2.Sub(t1),
+		"setRedis", t3.Sub(t2),
+		"gid", gorid.GoRId)
 }
 
 func (dc *DeltaContext) prepareStateDelta(block *types.Block) {
@@ -158,13 +167,18 @@ func (dc *DeltaContext) prepareStateDelta(block *types.Block) {
 	}
 
 	var dds *types.Deltas
+	var succeed bool
 	select {
 	case dds = <-dc.deltaCh:
 		// already get delta of height
 	default:
 		// can't get delta of height
 	}
-	dc.logger.Info("prepareStateDelta", "delta", dds)
+	if dds != nil {
+		succeed = true
+	}
+
+	dc.logger.Info("prepareStateDelta", "height", block.Height, "succeed", succeed, "delta", dds)
 
 	// request delta of height+1 and return
 	dc.deltaHeightCh <- block.Height + 1
@@ -173,6 +187,7 @@ func (dc *DeltaContext) prepareStateDelta(block *types.Block) {
 	// or get invalid data
 	if dds == nil || dds.Height != block.Height || types.DeltaVersion < dds.Version ||
 		len(dds.WatchBytes) == 0 || len(dds.ABCIRsp) == 0 || len(dds.DeltasBytes) == 0 {
+		dc.logger.Error("prepareStateDelta", "height", block.Height, "delta", dds)
 		return
 	}
 
@@ -191,26 +206,35 @@ func (dc *DeltaContext) getDeltaFromDDS() {
 		select {
 		case <-tryGetDDSTicker.C:
 			if flag {
+				t0 := time.Now()
 				deltaBytes, err := dc.deltaBroker.GetDeltas(height)
 				if err != nil {
 					continue
 				}
 				flag = false
 
+				t1 := time.Now()
 				// uncompress
-				compressBytes, err := dc.compressBroker.UnCompress(deltaBytes)
+				//compressBytes, err := dc.compressBroker.UnCompress(deltaBytes)
+				//if err != nil {
+				//	continue
+				//}
+
+				t2 := time.Now()
+				// unmarshal
+				directDelta := &types.Deltas{}
+				err = directDelta.Unmarshal(deltaBytes)
 				if err != nil {
 					continue
 				}
 
-				// unmarshal
-				directDelta := &types.Deltas{}
-				err = directDelta.Unmarshal(compressBytes)
-				if err != nil {
-					continue
-				}
-				
-				dc.logger.Info("Download delta:", "delta", directDelta, "gid", gorid.GoRId)
+				t3 := time.Now()
+				dc.logger.Info("Download delta:",
+					"delta", directDelta,
+					"getRedis", t1.Sub(t0),
+					"uncompress", t2.Sub(t1),
+					"unmarshal", t3.Sub(t2),
+					"gid", gorid.GoRId)
 				dc.deltaCh <- directDelta
 			}
 

@@ -17,7 +17,7 @@ set -x # activate debugging
 
 source exchain.profile
 
-while getopts "isn:b:p:Sm" opt; do
+while getopts "isn:b:p:c:Sm" opt; do
   case $opt in
   i)
     echo "OKCHAIN_INIT"
@@ -26,6 +26,10 @@ while getopts "isn:b:p:Sm" opt; do
   s)
     echo "OKCHAIN_START"
     OKCHAIN_START=1
+    ;;
+  c)
+    echo "Test_CASE"
+    Test_CASE="--consensus-testcase $OPTARG"
     ;;
   n)
     echo "NUM_NODE=$OPTARG"
@@ -92,8 +96,15 @@ run() {
   rpcport=$4
   p2p_seed_opt=$5
   p2p_seed_arg=$6
+#  parallel_run_tx=false
+#
+#  if [ $(($index % 2)) -eq 0 ];then
+#      parallel_run_tx=true
+#    else
+#      parallel_run_tx=false
+#    fi
 
-  LOG_LEVEL=main:info,*:error,consensus:info,state:info
+  LOG_LEVEL=main:info,*:error,consensus:error,state:info
 
   if [ "$(uname -s)" == "Darwin" ]; then
       sed -i "" 's/"enable_call": false/"enable_call": true/' cache/node${index}/exchaind/config/genesis.json
@@ -117,12 +128,15 @@ run() {
     --consensus.timeout_commit 200ms \
     --log_level ${LOG_LEVEL} \
     --chain-id ${CHAIN_ID} \
-    --upload-delta \
-    --elapsed DeliverTxs=0,Round=0,CommitRound=0,Produce=0 \
+    --upload-delta=false \
+    --elapsed DeliverTxs=0,Round=1,CommitRound=1,Produce=1 \
     --rest.laddr tcp://localhost:8545 \
+    --enable-proactively-runtx \
+    --consensus-role=v$index \
+    ${Test_CASE} \
     --keyring-backend test >cache/val${index}.log 2>&1 &
 
-#     --iavl-enable-async-commit \
+#     --iavl-enable-async-commit \    --consensus-testcase case12.json \
 #     --upload-delta \
 #     --enable-proactively-runtx \
 }

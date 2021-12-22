@@ -151,6 +151,7 @@ which accepts a path for the resulting pprof file.
 	cmd.Flags().Bool(tmtypes.FlagDataCenter, false, "Use data-center-mode or not")
 	cmd.Flags().String(tmtypes.DataCenterUrl, "http://127.0.0.1:7002/", "data-center-url")
 	cmd.Flags().String(tmtypes.FlagRedisUrl, "localhost:6379", "redis url")
+	cmd.Flags().String(tmtypes.FlagRedisAuth, "", "redis auth")
 
 	cmd.Flags().Int(iavl.FlagIavlCacheSize, 1000000, "Max size of iavl cache")
 	cmd.Flags().StringToInt(tmiavl.FlagOutputModules, map[string]int{"evm": 1, "acc": 1}, "decide which module in iavl to be printed")
@@ -173,8 +174,9 @@ which accepts a path for the resulting pprof file.
 	cmd.Flags().Float64Var(&baseapp.GasUsedFactor, baseapp.FlagGasUsedFactor, 0.4, "factor to calculate history gas used")
 
 	cmd.Flags().Bool(sdk.FlagMultiCache, false, "Enable multi cache")
-	cmd.Flags().Int(sdk.MaxAccInMultiCache, 100000, "max acc in multi cache")
-	cmd.Flags().Int(sdk.MaxContractInMultiCache, 110000, "max contract in multi cache")
+
+	cmd.Flags().Int(sdk.MaxAccInMultiCache, 0, "max acc in multi cache")
+	cmd.Flags().Int(sdk.MaxStorageInMultiCache, 0, "max storage in multi cache")
 
 	// Don`t use cmd.Flags().*Var functions(such as cmd.Flags.IntVar) here, because it doesn't work with environment variables.
 	// Use setExternalPackageValue function instead.

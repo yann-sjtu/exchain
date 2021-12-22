@@ -140,20 +140,20 @@ func (c *Cache) UpdateCode(key []byte, value []byte, isdirty bool) {
 	}
 }
 
-func (c *Cache) GetAccount(addr ethcmn.Address) (account, uint64, bool) {
+func (c *Cache) GetAccount(addr ethcmn.Address) (account, uint64, bool, bool) {
 	if c.skip() {
-		return nil, 0, false
+		return nil, 0, false, false
 	}
 
 	if data, ok := c.accMap[addr]; ok {
-		return data.acc, data.gas, ok
+		return data.acc, data.gas, ok, false
 	}
 
 	if c.parent != nil {
-		acc, gas, ok := c.parent.GetAccount(addr)
-		return acc, gas, ok
+		acc, gas, ok, _ := c.parent.GetAccount(addr)
+		return acc, gas, ok, true
 	}
-	return nil, 0, false
+	return nil, 0, false, false
 }
 
 func (c *Cache) GetStorage(addr ethcmn.Address, key ethcmn.Hash) ([]byte, bool) {

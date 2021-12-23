@@ -4,6 +4,7 @@
 package types
 
 import (
+	"fmt"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/tecbot/gorocksdb"
 	db "github.com/tendermint/tm-db"
@@ -11,6 +12,7 @@ import (
 
 func init() {
 	dbCreator := func(name string, dir string) (ethdb.KeyValueStore, error) {
+		fmt.Println("rocksdb:dbCreator")
 		return NewWrapRocksDB(name, dir)
 	}
 	registerDBCreator(RocksDBBackend, dbCreator, false)

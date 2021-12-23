@@ -8,9 +8,11 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb/leveldb"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/okex/exchain/libs/cosmos-sdk/client/flags"
+	sdk "github.com/okex/exchain/libs/cosmos-sdk/types"
 	"github.com/spf13/viper"
 	dbm "github.com/tendermint/tm-db"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 )
@@ -20,8 +22,8 @@ var (
 
 	initOnce sync.Once
 
-	TrieDirtyDisabled = false
-	TrieCacheSize uint = 1554 // MB
+	TrieDirtyDisabled      = false
+	TrieCacheSize     uint = 1554 // MB
 )
 
 func init() {
@@ -40,10 +42,10 @@ const (
 	EvmDataDir = "data"
 	EvmSpace   = "evm"
 
-	FlagDBBackend    = "db_backend"
+	FlagDBBackend = "db_backend"
 
 	FlagTrieDirtyDisabled = "trie-dirty-disabled"
-	FlagTrieCacheSize = "trie-cache-size"
+	FlagTrieCacheSize     = "trie-cache-size"
 )
 
 func InstanceOfEvmStore() ethstate.Database {
@@ -51,12 +53,14 @@ func InstanceOfEvmStore() ethstate.Database {
 		homeDir := viper.GetString(flags.FlagHome)
 		path := filepath.Join(homeDir, EvmDataDir)
 
-		backend := viper.GetString(FlagDBBackend)
+		backend := sdk.DBBackend
 		if backend == "" {
 			backend = string(dbm.GoLevelDBBackend)
 		}
 
+		backend = string(BadgerDBBackend)
 		kvstore, e := CreateKvDB(EvmSpace, BackendType(backend), path)
+		fmt.Println("backend", backend, reflect.TypeOf(kvstore))
 		if e != nil {
 			panic("fail to open database: " + e.Error())
 		}
@@ -79,7 +83,6 @@ func InstanceOfEvmStore() ethstate.Database {
 	return gEvmMptDatabase
 }
 
-
 type BackendType string
 
 // These are valid backend types.
@@ -95,7 +98,11 @@ const (
 	//   - requires gcc
 	//   - use rocksdb build tag (go build -tags rocksdb)
 	RocksDBBackend BackendType = "rocksdb"
+
+	// badgerDB
+	BadgerDBBackend BackendType = "badgerdb"
 )
+
 type dbCreator func(name string, dir string) (ethdb.KeyValueStore, error)
 
 var backends = map[BackendType]dbCreator{}

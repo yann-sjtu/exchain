@@ -32,7 +32,7 @@ run() {
       --iavl-output-modules evm=1,acc=0 \
       --trace --home $HOME_SERVER --chain-id $CHAINID \
       --elapsed DeliverTxs=1 \
-      --rest.laddr "tcp://localhost:8545" > oec.log 2>&1 &
+      --rest.laddr "tcp://0.0.0.0:8545" > oec.log 2>&1 &
 
 # --iavl-commit-interval-height \
 # --iavl-enable-async-commit \

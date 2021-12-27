@@ -173,7 +173,6 @@ which accepts a path for the resulting pprof file.
 	viper.BindPFlag(FlagGoroutineNum, cmd.Flags().Lookup(FlagGoroutineNum))
 
 	cmd.Flags().Bool(state.FlagParalleledTx, false, "Enable Parallel Tx")
-	cmd.Flags().String(types.FlagDBBackend, string(types.GoLevelDBBackend), "mpt db type")
 	registerRestServerFlags(cmd)
 	registerAppFlagFn(cmd)
 	registerExChainPluginFlags(cmd)

@@ -33,6 +33,7 @@ run() {
       --trace --home $HOME_SERVER --chain-id $CHAINID \
       --elapsed DeliverTxs=1 \
       --db_backend=rocksdb \
+      --trie-cache-size=0 \
       --rest.laddr "tcp://0.0.0.0:8545" > oec.log 2>&1 &
 
 # --iavl-commit-interval-height \

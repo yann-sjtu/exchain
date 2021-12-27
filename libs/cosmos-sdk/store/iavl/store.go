@@ -221,6 +221,9 @@ func (st *Store) Get(key []byte) []byte {
 	}
 	value, err := st.flatKVDB.Get(key)
 	if err == nil && len(value) != 0 {
+		go func() {
+			st.tree.Get(key)
+		}()
 		return value
 	}
 	_, value = st.tree.Get(key)

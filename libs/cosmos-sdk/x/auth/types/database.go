@@ -8,9 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb/leveldb"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/okex/exchain/libs/cosmos-sdk/client/flags"
-	sdk "github.com/okex/exchain/libs/cosmos-sdk/types"
 	"github.com/spf13/viper"
-	dbm "github.com/tendermint/tm-db"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -53,12 +51,8 @@ func InstanceOfEvmStore() ethstate.Database {
 		homeDir := viper.GetString(flags.FlagHome)
 		path := filepath.Join(homeDir, EvmDataDir)
 
-		backend := sdk.DBBackend
-		if backend == "" {
-			backend = string(dbm.GoLevelDBBackend)
-		}
+		backend := viper.GetString(FlagDBBackend)
 
-		backend = string(BadgerDBBackend)
 		kvstore, e := CreateKvDB(EvmSpace, BackendType(backend), path)
 		fmt.Println("backend", backend, reflect.TypeOf(kvstore))
 		if e != nil {
@@ -108,6 +102,7 @@ type dbCreator func(name string, dir string) (ethdb.KeyValueStore, error)
 var backends = map[BackendType]dbCreator{}
 
 func registerDBCreator(backend BackendType, creator dbCreator, force bool) {
+	fmt.Println("registerDBCreator", backend)
 	_, ok := backends[backend]
 	if !force && ok {
 		return

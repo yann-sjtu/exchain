@@ -28,6 +28,7 @@ run() {
       --log_level $LOG_LEVEL \
       --consensus.timeout_commit 600ms \
       --iavl-enable-async-commit \
+      --iavl-cache-size 0 \
       --iavl-commit-interval-height 2 \
       --iavl-output-modules evm=1,acc=0 \
       --trace --home $HOME_SERVER --chain-id $CHAINID \

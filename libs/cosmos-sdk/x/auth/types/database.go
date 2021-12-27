@@ -41,7 +41,7 @@ const (
 	EvmDataDir = "data"
 	EvmSpace   = "evm"
 
-	FlagDBBackend = "db_backend"
+	FlagDBBackend = "mpt_db_backend"
 
 	FlagTrieDirtyDisabled = "trie-dirty-disabled"
 	FlagTrieCacheSize     = "trie-cache-size"

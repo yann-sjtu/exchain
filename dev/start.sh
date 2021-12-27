@@ -32,6 +32,7 @@ run() {
       --iavl-output-modules evm=1,acc=0 \
       --trace --home $HOME_SERVER --chain-id $CHAINID \
       --elapsed DeliverTxs=1 \
+      -- db_backend=rocksdb \
       --rest.laddr "tcp://0.0.0.0:8545" > oec.log 2>&1 &
 
 # --iavl-commit-interval-height \
@@ -60,7 +61,7 @@ set -x # activate debugging
 rm -rf ~/.exchain*
 rm -rf $HOME_SERVER
 
-(cd .. && make install)
+(cd .. && make install WITH_ROCKSDB=true)
 
 # Set up config for CLI
 exchaincli config chain-id $CHAINID

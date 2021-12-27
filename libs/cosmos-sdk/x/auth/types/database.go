@@ -68,6 +68,7 @@ func InstanceOfEvmStore() ethstate.Database {
 		//	panic(fmt.Sprintf("fail to init evm mpt database: %v", err))
 		//}
 
+		fmt.Println("71---", TrieCacheSize)
 		gEvmMptDatabase = ethstate.NewDatabaseWithConfig(db, &trie.Config{
 			Cache:     int(TrieCacheSize),
 			Journal:   "",

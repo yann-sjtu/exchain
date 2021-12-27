@@ -21,7 +21,7 @@ killbyname() {
 
 
 run() {
-    LOG_LEVEL=main:info,iavl:info,*:error
+    LOG_LEVEL=main:info,state:info,iavl:info,*:error
 
     exchaind start --pruning=nothing --rpc.unsafe \
       --local-rpc-port 26657 \

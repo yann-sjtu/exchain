@@ -102,7 +102,6 @@ type dbCreator func(name string, dir string) (ethdb.KeyValueStore, error)
 var backends = map[BackendType]dbCreator{}
 
 func registerDBCreator(backend BackendType, creator dbCreator, force bool) {
-	fmt.Println("registerDBCreator", backend)
 	_, ok := backends[backend]
 	if !force && ok {
 		return
@@ -111,6 +110,7 @@ func registerDBCreator(backend BackendType, creator dbCreator, force bool) {
 }
 
 func CreateKvDB(name string, backend BackendType, dir string) (ethdb.KeyValueStore, error) {
+	fmt.Println("backends", backends)
 	dbCreator, ok := backends[backend]
 	if !ok {
 		keys := make([]string, len(backends))

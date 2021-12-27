@@ -89,13 +89,13 @@ cat $HOME_SERVER/config/genesis.json | jq '.app_state["mint"]["params"]["mint_de
 
 
 # Enable EVM
-sed -i "" 's/"enable_call": false/"enable_call": true/' $HOME_SERVER/config/genesis.json
-sed -i "" 's/"enable_create": false/"enable_create": true/' $HOME_SERVER/config/genesis.json
+sed -i  's/"enable_call": false/"enable_call": true/' $HOME_SERVER/config/genesis.json
+sed -i  's/"enable_create": false/"enable_create": true/' $HOME_SERVER/config/genesis.json
 
 
-sed -i "" 's/create_empty_blocks = true/create_empty_blocks = false/' $HOME_SERVER/config/config.toml
-sed -i "" 's/size = 2000/size = 200000/' $HOME_SERVER/config/config.toml
-sed -i "" 's/max_tx_num_per_block = 300/max_tx_num_per_block = 3000/' $HOME_SERVER/config/config.toml
+sed -i  's/create_empty_blocks = true/create_empty_blocks = false/' $HOME_SERVER/config/config.toml
+sed -i  's/size = 2000/size = 200000/' $HOME_SERVER/config/config.toml
+sed -i  's/max_tx_num_per_block = 300/max_tx_num_per_block = 3000/' $HOME_SERVER/config/config.toml
 # Allocate genesis accounts (cosmos formatted addresses)
 exchaind add-genesis-account $(exchaincli keys show $KEY    -a) 100000000okt --home $HOME_SERVER
 exchaind add-genesis-account $(exchaincli keys show admin16 -a) 900000000okt --home $HOME_SERVER

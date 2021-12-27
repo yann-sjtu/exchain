@@ -269,6 +269,10 @@ func (w *crashingWAL) WriteSync(m WALMessage) error {
 	return w.Write(m)
 }
 
+// Add Reset noop function to implement interface Reset function
+// need to implement if ut need
+func (w *crashingWAL) Reset() error { return nil }
+
 func (w *crashingWAL) FlushAndSync() error { return w.next.FlushAndSync() }
 
 func (w *crashingWAL) SearchForEndHeight(
@@ -950,7 +954,7 @@ type badApp struct {
 	onlyLastHashIsWrong bool
 }
 
-func (app *badApp) Commit() abci.ResponseCommit {
+func (app *badApp) Commit(rc abci.RequestCommit) abci.ResponseCommit {
 	app.height++
 	if app.onlyLastHashIsWrong {
 		if app.height == app.numBlocks {

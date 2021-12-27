@@ -51,6 +51,9 @@ var config *cfg.Config // NOTE: must be reset for each _test.go file
 var consensusReplayConfig *cfg.Config
 var ensureTimeout = time.Millisecond * 100
 
+// timeout=3s always above 3 second so use timeout 3100 to check,can also use 3010
+var ensureRoundTimeout = 3100 * time.Millisecond
+
 func ensureDir(dir string, mode os.FileMode) {
 	if err := tmos.EnsureDir(dir, mode); err != nil {
 		panic(err)
@@ -489,7 +492,7 @@ func ensureNewEvent(ch <-chan tmpubsub.Message, height int64, round int, timeout
 
 func ensureNewRound(roundCh <-chan tmpubsub.Message, height int64, round int) {
 	select {
-	case <-time.After(ensureTimeout):
+	case <-time.After(ensureRoundTimeout):
 		panic("Timeout expired while waiting for NewRound event")
 	case msg := <-roundCh:
 		newRoundEvent, ok := msg.Data().(types.EventDataNewRound)
@@ -507,7 +510,7 @@ func ensureNewRound(roundCh <-chan tmpubsub.Message, height int64, round int) {
 }
 
 func ensureNewTimeout(timeoutCh <-chan tmpubsub.Message, height int64, round int, timeout int64) {
-	timeoutDuration := time.Duration(timeout*10) * time.Nanosecond
+	timeoutDuration := time.Duration(timeout*100) * time.Nanosecond
 	ensureNewEvent(timeoutCh, height, round, timeoutDuration,
 		"Timeout expired while waiting for NewTimeout event")
 }
@@ -807,6 +810,12 @@ func (m *mockTicker) Start() error {
 }
 
 func (m *mockTicker) Stop() error {
+	return nil
+}
+
+//add noop Reset function for TimeoutTicker interface
+//need to implement when used
+func (m *mockTicker) Reset() error {
 	return nil
 }
 

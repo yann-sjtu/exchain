@@ -151,7 +151,6 @@ func (db *BadgerDB) Has(key []byte) (exists bool, err error) {
 
 // Get returns the given key
 func (db *BadgerDB) Get(key []byte) (data []byte, err error) {
-	fmt.Println("145-----")
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 	err = db.db.View(func(txn *badger.Txn) error {

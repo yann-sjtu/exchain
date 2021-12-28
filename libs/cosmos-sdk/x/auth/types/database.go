@@ -55,7 +55,7 @@ func InstanceOfEvmStore() ethstate.Database {
 		backend := viper.GetString(FlagDBBackend)
 
 		kvstore, e := CreateKvDB(EvmSpace, BackendType(backend), path)
-		fmt.Println("backend", backend, reflect.TypeOf(kvstore))
+		fmt.Println("backend", backend, reflect.TypeOf(kvstore), path)
 		if e != nil {
 			panic("fail to open database: " + e.Error())
 		}

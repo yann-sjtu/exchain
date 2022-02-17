@@ -339,9 +339,7 @@ func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo Tx
 		return err
 	}
 
-	begin := time.Now()
 	reqRes := mem.proxyAppConn.CheckTxAsync(abci.RequestCheckTx{Tx: tx, Type: txInfo.checkType, From: txInfo.wtx.GetFrom()})
-	mem.logger.Info("mempool.CheckTxAsync", "time cost", time.Since(begin))
 	if cfg.DynamicConfig.GetMaxGasUsedPerBlock() > -1 {
 		if r, ok := reqRes.Response.Value.(*abci.Response_CheckTx); ok {
 			mem.logger.Info(fmt.Sprintf("mempool.SimulateTx: txhash<%s>, gasLimit<%d>, gasUsed<%d>",
@@ -971,7 +969,25 @@ func (mem *CListMempool) reOrgTxs(addr string) *CListMempool {
 	return mem
 }
 
+//func (mem *CListMempool) checkRepeatedElement2(info ExTxInfo) error {
+//	ele, ok := mem.addressRecord.checkRepeatedElement(info)
+//	if !ok {
+//		return errors.New("invalid nonce")
+//	}
+//	if ele == nil {
+//		return nil
+//	}
+//	if info.GasPrice.Cmp(MultiPriceBump(ele.GasPrice, int64(mem.config.TxPriceBump))) <= 0 {
+//		return errors.New("invalid gas price")
+//	}
+//
+//	mem.removeTx(ele.Value.(*mempoolTx).tx, ele, true)
+//	mem.reOrgTxs(info.Sender)
+//	return nil
+//}
+
 func (mem *CListMempool) checkRepeatedElement(info ExTxInfo) int {
+	//return 0
 	repeatElement := 0
 	if userMap, ok := mem.addressRecord.GetItem(info.Sender); ok {
 		for _, node := range userMap {

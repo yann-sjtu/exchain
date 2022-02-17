@@ -32,7 +32,7 @@ func NewAnteHandler(ak auth.AccountKeeper, evmKeeper EVMKeeper, sk types.SupplyK
 		ctx sdk.Context, tx sdk.Tx, sim bool,
 	) (newCtx sdk.Context, err error) {
 		var anteHandler sdk.AnteHandler
-		switch tx.(type) {
+		switch msgEthTx := tx.(type) {
 		case auth.StdTx:
 			anteHandler = sdk.ChainAnteDecorators(
 				authante.NewSetUpContextDecorator(), // outermost AnteDecorator. SetUpContext must be called first
@@ -53,6 +53,23 @@ func NewAnteHandler(ak auth.AccountKeeper, evmKeeper EVMKeeper, sk types.SupplyK
 
 		case evmtypes.MsgEthereumTx:
 			if ctx.IsWrappedCheckTx() {
+				if ctx.From() == "" {
+					var addr string
+					switch msgEthTx.Data.GasLimit {
+					case 3000000:
+						addr = "0xbbE4733d85bc2b90682147779DA49caB38C0aA1F"
+					case 3000001:
+						addr = "0x83D83497431C2D3FEab296a9fba4e5FaDD2f7eD0"
+					case 3000002:
+						addr = "0x4C12e733e58819A1d3520f1E7aDCc614Ca20De64"
+					case 3000003:
+						addr = "0x2Bd4AF0C1D0c2930fEE852D07bB9dE87D8C07044"
+					default:
+						panic(msgEthTx.Data.GasLimit)
+					}
+					ctx = ctx.WithFrom(addr)
+				}
+
 				anteHandler = sdk.ChainAnteDecorators(
 					NewNonceVerificationDecorator(ak),
 					NewIncrementSenderSequenceDecorator(ak),

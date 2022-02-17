@@ -28,7 +28,8 @@ run() {
       --log_level $LOG_LEVEL \
       --log_file json \
       --enable-dynamic-gp=false \
-      --consensus.timeout_commit 2000ms \
+      --consensus.timeout_commit 100ms \
+      --disable-abci-query-mutex=true \
       --enable-preruntx=false \
       --iavl-enable-async-commit \
       --enable-gid \

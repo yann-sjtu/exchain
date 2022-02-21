@@ -9,14 +9,14 @@ import (
 )
 
 type AddressRecord2 struct {
-	m sync.Map // address -> map[txHash]*addrMap
+	addrTxs sync.Map // address -> map[txHash]*addrMap
 }
 
 type addrMap struct {
 	sync.RWMutex
 
-	items map[string]*clist.CElement
-	minNonce uint64
+	items map[string]*clist.CElement  // txHash -> *mempoolTx
+	maxNonce uint64
 }
 
 func newAddressRecord2() *AddressRecord2 {
@@ -24,73 +24,77 @@ func newAddressRecord2() *AddressRecord2 {
 }
 
 func (ar *AddressRecord2) AddItem(address string, txHash string, cElement *clist.CElement) {
-	v, ok := ar.m.Load(address)
+	v, ok := ar.addrTxs.Load(address)
 	if !ok {
-		am := &addrMap{items: make(map[string]*clist.CElement)}
-		am.items[txHash] = cElement
-		ar.m.Store(address, am)
+		// LoadOrStore to prevent double storing
+		v, ok = ar.addrTxs.LoadOrStore(address, &addrMap{items:make(map[string]*clist.CElement)})
 	}
 	am := v.(*addrMap)
 	am.Lock()
 	defer am.Unlock()
 	am.items[txHash] = cElement
+	if cElement.Nonce > am.maxNonce {
+		am.maxNonce = cElement.Nonce
+	}
 }
 
-func (ar *AddressRecord2) checkRepeatedElement(info ExTxInfo) (ele *clist.CElement, valid bool) {
-	v, ok := ar.m.Load(info.Sender)
+func (ar *AddressRecord2) checkRepeatedElement(info ExTxInfo) *clist.CElement{
+	v, ok := ar.addrTxs.Load(info.Sender)
 	if !ok {
-		return nil, true
+		return nil
 	}
 	am := v.(*addrMap)
-	am.Lock()
-	defer am.Unlock()
-	if info.Nonce < am.minNonce {
-		return nil, false
+	am.RLock()
+	defer am.RUnlock()
+	if info.Nonce > am.maxNonce {
+		return nil
 	}
-	for _, ele = range am.items {
+	for _, ele := range am.items {
 		if ele.Nonce == info.Nonce {
-			return ele, true
+			return ele
 		}
 	}
-	return nil, true
+	return nil
 }
 
-func (ar *AddressRecord2) CleanItem(address string, nonce uint64) {
-	v, ok := ar.m.Load(address)
+func (ar *AddressRecord2) CleanItems(address string, nonce uint64) []*clist.CElement {
+	v, ok := ar.addrTxs.Load(address)
 	if !ok {
-		return
+		return nil
 	}
 	am := v.(*addrMap)
+	var l []*clist.CElement
 	am.Lock()
 	defer am.Unlock()
-	if nonce < am.minNonce {
-		return
-	}
-	am.minNonce = nonce+1
 	for k, v := range am.items {
 		if v.Nonce <= nonce {
+			l = append(l, v)
 			delete(am.items, k)
 		}
 	}
+	if len(am.items) == 0 {
+		ar.addrTxs.Delete(address)
+	}
+	return l
 }
 
-func (ar *AddressRecord2) GetItem(address string) (map[string]*clist.CElement, bool) {
-	v, ok := ar.m.Load(address)
+func (ar *AddressRecord2) GetItems(address string) []*clist.CElement {
+	v, ok := ar.addrTxs.Load(address)
 	if !ok {
-		return nil, false
+		return nil
 	}
 	am := v.(*addrMap)
-	m := make(map[string]*clist.CElement)
+	var l []*clist.CElement
 	am.RLock()
 	defer am.RUnlock()
-	for k, v := range am.items {
-		m[k] = v
+	for _, v := range am.items {
+		l = append(l, v)
 	}
-	return m, true
+	return l
 }
 
 func (ar *AddressRecord2) DeleteItem(e *clist.CElement) {
-	if v, ok := ar.m.Load(e.Address); ok {
+	if v, ok := ar.addrTxs.Load(e.Address); ok {
 		am := v.(*addrMap)
 		memTx := e.Value.(*mempoolTx)
 		txHash := txID(memTx.tx, memTx.height)
@@ -98,14 +102,14 @@ func (ar *AddressRecord2) DeleteItem(e *clist.CElement) {
 		defer am.Unlock()
 		delete(am.items, txHash)
 		if len(am.items) == 0 {
-			ar.m.Delete(e.Address)
+			ar.addrTxs.Delete(e.Address)
 		}
 	}
 }
 
 func (ar *AddressRecord2) GetAddressList() []string {
 	var addrList []string
-	ar.m.Range(func(k, v interface{}) bool {
+	ar.addrTxs.Range(func(k, v interface{}) bool {
 		addrList = append(addrList, k.(string))
 		return true
 	})
@@ -113,7 +117,7 @@ func (ar *AddressRecord2) GetAddressList() []string {
 }
 
 func (ar *AddressRecord2) GetAddressTxsCnt(address string) int {
-	v, ok := ar.m.Load(address)
+	v, ok := ar.addrTxs.Load(address)
 	if !ok {
 		return 0
 	}
@@ -124,7 +128,7 @@ func (ar *AddressRecord2) GetAddressTxsCnt(address string) int {
 }
 
 func (ar *AddressRecord2) GetAddressNonce(address string) uint64 {
-	v, ok := ar.m.Load(address)
+	v, ok := ar.addrTxs.Load(address)
 	if !ok {
 		return 0
 	}
@@ -141,7 +145,7 @@ func (ar *AddressRecord2) GetAddressNonce(address string) uint64 {
 }
 
 func (ar *AddressRecord2) GetAddressTxs(address string, txCount int, max int) types.Txs {
-	v, ok := ar.m.Load(address)
+	v, ok := ar.addrTxs.Load(address)
 	if !ok {
 		return nil
 	}

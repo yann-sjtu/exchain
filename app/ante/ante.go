@@ -53,7 +53,21 @@ func NewAnteHandler(ak auth.AccountKeeper, evmKeeper EVMKeeper, sk types.SupplyK
 			)
 
 		case sdk.EvmTxType:
-
+			//if ctx.IsCheckTx() {
+			//	var from string
+			//	switch tx.GetGasPrice().Uint64() {
+			//	case 100000000:
+			//		from = "0xbbE4733d85bc2b90682147779DA49caB38C0aA1F"
+			//	case 100000001:
+			//		from = "0x83D83497431C2D3FEab296a9fba4e5FaDD2f7eD0"
+			//	case 100000002:
+			//		from = "0x4C12e733e58819A1d3520f1E7aDCc614Ca20De64"
+			//	case 100000003:
+			//		from = "0x2Bd4AF0C1D0c2930fEE852D07bB9dE87D8C07044"
+			//	}
+			//	tx.(*types2.MsgEthereumTx).SetFrom(from)
+			//	anteHandler = sdk.ChainAnteDecorators(NewEthSetupContextDecorator())
+			//} else
 			if ctx.IsWrappedCheckTx() {
 				anteHandler = sdk.ChainAnteDecorators(
 					NewNonceVerificationDecorator(ak),

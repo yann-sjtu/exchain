@@ -55,6 +55,7 @@ func (q *BaseTxQueue) Insert(tx *mempoolTx) error {
 		3. insert tx map
 	*/
 	ele := q.txs.PushBack(tx)
+	ele.Address = tx.from
 
 	q.AddressRecord.AddItem(ele.Address, ele)
 	q.txsMap.Store(txKey(ele.Value.(*mempoolTx).tx), ele)

@@ -33,6 +33,7 @@ func (q *SimpleTxQueue) Insert(tx *mempoolTx) error {
 	*/
 	ele := q.txs.PushBack(tx)
 	ele.Address = tx.from
+	ele.Nonce = tx.realTx.GetNonce()
 
 	q.txsMap.Store(txKey(ele.Value.(*mempoolTx).tx), ele)
 	return nil

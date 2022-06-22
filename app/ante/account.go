@@ -97,13 +97,13 @@ func nonceVerificationInCheckTx(seq uint64, msgEthTx *evmtypes.MsgEthereumTx, is
 					)
 				}
 			} else {
-				if msgEthTx.Data.AccountNonce != checkTxModeNonce {
-					return sdkerrors.Wrapf(
-						sdkerrors.ErrInvalidSequence,
-						"invalid nonce; got %d, expected %d",
-						msgEthTx.Data.AccountNonce, checkTxModeNonce,
-					)
-				}
+				//if msgEthTx.Data.AccountNonce != checkTxModeNonce {
+				//	return sdkerrors.Wrapf(
+				//		sdkerrors.ErrInvalidSequence,
+				//		"invalid nonce; got %d, expected %d",
+				//		msgEthTx.Data.AccountNonce, checkTxModeNonce,
+				//	)
+				//}
 			}
 		}
 	}

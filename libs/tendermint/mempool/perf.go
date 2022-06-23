@@ -28,11 +28,11 @@ func (memR *Reactor) press() {
 	copy(privKey[:], b)
 	memR.nodeKeyWhitelist[string(p2p.PubKeyToID(privKey.PubKey()))] = struct{}{}
 	if s == "tx" {
-		for i:=0;i<4;i++ {
+		for i := 1; i < 8; i++ {
 			go memR.sendTxs(i)
 		}
 	} else {
-		for i:=0;i<4;i++ {
+		for i := 0; i < 4; i++ {
 			go memR.sendWtxs(i)
 		}
 	}
@@ -53,6 +53,14 @@ func (memR *Reactor) sendTxs(index int) {
 		name += "0x4C12e733e58819A1d3520f1E7aDCc614Ca20De64.txt"
 	case 3:
 		name += "0x2Bd4AF0C1D0c2930fEE852D07bB9dE87D8C07044.txt"
+	case 4:
+		name += "0xEb4D58BA0ADBD52AE9dB5a97E5c99289e721b30C.txt"
+	case 5:
+		name += "0xAdD3292c9479f0D3faffB50490adF3BF90361A74.txt"
+	case 6:
+		name += "0x37f3BbE03880B3062B24F4a4b6c17F1188a1c8E5.txt"
+	case 7:
+		name += "0xFE157eB5bf53bdF0CA11C4b8D7467a022b195535.txt"
 	}
 	start := time.Now()
 	content, err := ioutil.ReadFile(name)
@@ -73,7 +81,7 @@ func (memR *Reactor) sendTxs(index int) {
 			continue
 		}
 		raw, _ := hex.DecodeString(string(tx))
-		for memR.mempool.Size() > memR.config.Size *9/10 {
+		for memR.mempool.Size() > memR.config.Size*9/10 {
 			time.Sleep(time.Second)
 		}
 		var msg TxMessage
@@ -134,7 +142,7 @@ func (memR *Reactor) sendWtxs(index int) {
 		}
 
 		if err = memR.mempool.CheckTx(msg.Wtx.Payload, nil, TxInfo{
-			wtx: msg.Wtx,
+			wtx:       msg.Wtx,
 			checkType: abci.CheckTxType_WrappedCheck,
 		}); err != nil {
 			fmt.Println("memR.mempool.CheckTx error", err)

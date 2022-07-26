@@ -9,8 +9,6 @@ type IDynamicConfig interface {
 	GetMaxTxNumPerBlock() int64
 	GetMaxGasUsedPerBlock() int64
 	GetMempoolFlush() bool
-	GetNodeKeyWhitelist() []string
-	GetSentryAddrs() []string
 	GetCsTimeoutPropose() time.Duration
 	GetCsTimeoutProposeDelta() time.Duration
 	GetCsTimeoutPrevote() time.Duration
@@ -19,6 +17,11 @@ type IDynamicConfig interface {
 	GetCsTimeoutPrecommitDelta() time.Duration
 	GetCsTimeoutCommit() time.Duration
 	GetEnableWtx() bool
+	GetNodeKeyWhitelist() []string
+	GetEnableBatchTx() bool
+	IsSentryNode() bool
+	GetSentryPartner() string
+	GetSentryAddrs() []string
 	GetDeliverTxsExecuteMode() int
 	GetEnableHasBlockPartMsg() bool
 }
@@ -58,6 +61,18 @@ func (d MockDynamicConfig) GetMempoolFlush() bool {
 
 func (d MockDynamicConfig) GetNodeKeyWhitelist() []string {
 	return []string{}
+}
+
+func (d MockDynamicConfig) GetEnableBatchTx() bool {
+	return false
+}
+
+func (d MockDynamicConfig) IsSentryNode() bool {
+	return false
+}
+
+func (d MockDynamicConfig) GetSentryPartner() string {
+	return ""
 }
 
 func (d MockDynamicConfig) GetSentryAddrs() []string {

@@ -73,6 +73,7 @@ func AddNodeFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool("p2p.seed_mode", config.P2P.SeedMode, "Enable/disable seed mode")
 	cmd.Flags().String("p2p.private_peer_ids", config.P2P.PrivatePeerIDs, "Comma-delimited private peer IDs")
 	cmd.Flags().String("p2p.sentry_addrs", "", "Comma-delimited addresses")
+	cmd.Flags().String("p2p.sentry_partner", "", "Peer ID of partner node which txs fetched from or txs pushed to")
 
 	// consensus flags
 	cmd.Flags().Bool(
@@ -172,6 +173,18 @@ func AddNodeFlags(cmd *cobra.Command) {
 		"local_perf",
 		"",
 		"send tx/wtx to mempool, only for local performance test",
+	)
+
+	cmd.Flags().Bool(
+		"sentry-node",
+		false,
+		"sentry node of a validator",
+	)
+
+	cmd.Flags().Bool(
+		"enable-batch-tx",
+		false,
+		"enable batch tx",
 	)
 
 	// db flags

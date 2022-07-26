@@ -5,24 +5,25 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+
 	"time"
-
-	sdk "github.com/okex/exchain/libs/cosmos-sdk/types"
-
-	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 
 	"math/big"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	ethcrypto "github.com/ethereum/go-ethereum/crypto"
+	sdk "github.com/okex/exchain/libs/cosmos-sdk/types"
+	"github.com/tendermint/go-amino"
+
 	"github.com/okex/exchain/libs/cosmos-sdk/x/auth"
 	abci "github.com/okex/exchain/libs/tendermint/abci/types"
 	"github.com/okex/exchain/x/evm/types"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/status-im/keycard-go/hexutils"
-	"github.com/tendermint/go-amino"
 )
 
 var (
@@ -47,16 +48,13 @@ var (
 )
 
 const (
-	TypeOthers = uint32(1)
-	TypeState  = uint32(2)
-	TypeDelete = uint32(3)
+	TypeOthers    = uint32(1)
+	TypeState     = uint32(2)
+	TypeDelete    = uint32(3)
+	TypeEvmParams = uint32(4)
 )
 
-type WatchMessage interface {
-	GetKey() []byte
-	GetValue() string
-	GetType() uint32
-}
+type WatchMessage = sdk.WatchMessage
 
 type Batch struct {
 	Key       []byte `json:"key"`
@@ -620,6 +618,10 @@ func newBlock(height uint64, blockBloom ethtypes.Bloom, blockHash common.Hash, h
 	if timestamp < 0 {
 		timestamp = time.Now().Unix()
 	}
+	transactionsRoot := ethtypes.EmptyRootHash
+	if len(header.DataHash) > 0 {
+		transactionsRoot = common.BytesToHash(header.DataHash)
+	}
 	return Block{
 		Number:           hexutil.Uint64(height),
 		Hash:             blockHash,
@@ -627,7 +629,7 @@ func newBlock(height uint64, blockBloom ethtypes.Bloom, blockHash common.Hash, h
 		Nonce:            BlockNonce{},
 		UncleHash:        common.Hash{},
 		LogsBloom:        blockBloom,
-		TransactionsRoot: common.BytesToHash(header.DataHash),
+		TransactionsRoot: transactionsRoot,
 		StateRoot:        common.BytesToHash(header.AppHash),
 		Miner:            common.BytesToAddress(header.ProposerAddress),
 		MixHash:          common.Hash{},
@@ -793,7 +795,7 @@ type MsgParams struct {
 }
 
 func (msgParams *MsgParams) GetType() uint32 {
-	return TypeOthers
+	return TypeEvmParams
 }
 
 func NewMsgParams(params types.Params) *MsgParams {
@@ -836,6 +838,28 @@ func (msgItem *MsgContractBlockedListItem) GetValue() string {
 	return ""
 }
 
+type MsgDelContractBlockedListItem struct {
+	addr sdk.AccAddress
+}
+
+func (msgItem *MsgDelContractBlockedListItem) GetType() uint32 {
+	return TypeDelete
+}
+
+func NewMsgDelContractBlockedListItem(addr sdk.AccAddress) *MsgDelContractBlockedListItem {
+	return &MsgDelContractBlockedListItem{
+		addr: addr,
+	}
+}
+
+func (msgItem *MsgDelContractBlockedListItem) GetKey() []byte {
+	return append(prefixBlackList, msgItem.addr.Bytes()...)
+}
+
+func (msgItem *MsgDelContractBlockedListItem) GetValue() string {
+	return ""
+}
+
 type MsgContractDeploymentWhitelistItem struct {
 	addr sdk.AccAddress
 }
@@ -855,6 +879,28 @@ func (msgItem *MsgContractDeploymentWhitelistItem) GetKey() []byte {
 }
 
 func (msgItem *MsgContractDeploymentWhitelistItem) GetValue() string {
+	return ""
+}
+
+type MsgDelContractDeploymentWhitelistItem struct {
+	addr sdk.AccAddress
+}
+
+func (msgItem *MsgDelContractDeploymentWhitelistItem) GetType() uint32 {
+	return TypeDelete
+}
+
+func NewMsgDelContractDeploymentWhitelistItem(addr sdk.AccAddress) *MsgDelContractDeploymentWhitelistItem {
+	return &MsgDelContractDeploymentWhitelistItem{
+		addr: addr,
+	}
+}
+
+func (msgItem *MsgDelContractDeploymentWhitelistItem) GetKey() []byte {
+	return append(prefixWhiteList, msgItem.addr.Bytes()...)
+}
+
+func (msgItem *MsgDelContractDeploymentWhitelistItem) GetValue() string {
 	return ""
 }
 

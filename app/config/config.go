@@ -42,6 +42,8 @@ type OecConfig struct {
 	nodeKeyWhitelist []string
 	// p2p.sentry_addrs
 	sentryAddrs []string
+	// p2p.sentry_partner
+	sentryPartner string
 
 	// gas-limit-buffer
 	gasLimitBuffer uint64
@@ -70,6 +72,12 @@ type OecConfig struct {
 
 	// enable-wtx
 	enableWtx bool
+
+	// sentry-node
+	isSentryNode bool
+
+	// enable-batch-tx
+	enableBatchTx bool
 
 	// enable-analyzer
 	enableAnalyzer bool
@@ -102,7 +110,10 @@ const (
 	FlagEnableDynamicGp        = "enable-dynamic-gp"
 	FlagDynamicGpWeight        = "dynamic-gp-weight"
 	FlagEnableWrappedTx        = "enable-wtx"
+	FLagSentryNode             = "sentry-node"
+	FlagSentryPartner          = "p2p.sentry_partner"
 	FlagSentryAddrs            = "p2p.sentry_addrs"
+	FlagEnableBatchTx          = "enable-batch-tx"
 
 	FlagCsTimeoutPropose        = "consensus.timeout_propose"
 	FlagCsTimeoutProposeDelta   = "consensus.timeout_propose_delta"
@@ -217,7 +228,10 @@ func (c *OecConfig) loadFromConfig() {
 	c.SetCsTimeoutPrecommitDelta(viper.GetDuration(FlagCsTimeoutPrecommitDelta))
 	c.SetCsTimeoutCommit(viper.GetDuration(FlagCsTimeoutCommit))
 	c.SetIavlCacheSize(viper.GetInt(iavl.FlagIavlCacheSize))
+	c.SetSentryNode(viper.GetBool(FLagSentryNode))
+	c.SetSentryPartner(viper.GetString(FlagSentryPartner))
 	c.SetSentryAddrs(viper.GetString(FlagSentryAddrs))
+	c.SetEnableBatchTx(viper.GetBool(FlagEnableBatchTx))
 	c.SetNodeKeyWhitelist(viper.GetString(FlagNodeKeyWhitelist))
 	c.SetEnableWtx(viper.GetBool(FlagEnableWrappedTx))
 	c.SetEnableAnalyzer(viper.GetBool(trace.FlagEnableAnalyzer))
@@ -326,17 +340,21 @@ func (c *OecConfig) update(key, value interface{}) {
 		}
 		c.SetMaxTxNumPerBlock(r)
 	case FlagNodeKeyWhitelist:
-		r, ok := value.(string)
-		if !ok {
+		c.SetNodeKeyWhitelist(v)
+	case FlagEnableBatchTx:
+		r, err := strconv.ParseBool(v)
+		if err != nil {
 			return
 		}
-		c.SetNodeKeyWhitelist(r)
+		c.SetEnableBatchTx(r)
+	case FLagSentryNode:
+		r, err := strconv.ParseBool(v)
+		if err != nil {
+			return
+		}
+		c.SetSentryNode(r)
 	case FlagSentryAddrs:
-		r, ok := value.(string)
-		if !ok {
-			return
-		}
-		c.SetSentryAddrs(r)
+		c.SetSentryAddrs(v)
 	case FlagMaxGasUsedPerBlock:
 		r, err := strconv.ParseInt(v, 10, 64)
 		if err != nil {
@@ -533,6 +551,30 @@ func (c *OecConfig) SetNodeKeyWhitelist(value string) {
 			c.nodeKeyWhitelist = append(c.nodeKeyWhitelist, id)
 		}
 	}
+}
+
+func (c *OecConfig) GetEnableBatchTx() bool {
+	return c.enableBatchTx
+}
+
+func (c *OecConfig) SetEnableBatchTx(value bool) {
+	c.enableBatchTx = value
+}
+
+func (c *OecConfig) IsSentryNode() bool {
+	return c.isSentryNode
+}
+
+func (c *OecConfig) SetSentryNode(value bool) {
+	c.isSentryNode = value
+}
+
+func (c *OecConfig) GetSentryPartner() string {
+	return c.sentryPartner
+}
+
+func (c *OecConfig) SetSentryPartner(value string) {
+	c.sentryPartner = value
 }
 
 func (c *OecConfig) GetSentryAddrs() []string {

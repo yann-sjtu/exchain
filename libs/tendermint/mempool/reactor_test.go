@@ -3,6 +3,7 @@ package mempool
 import (
 	"math/rand"
 	"net"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -471,4 +472,96 @@ func BenchmarkTxMessageUnmarshal(b *testing.B) {
 	//})
 	_ = h
 	_ = msg
+}
+
+func BenchmarkReactorLogReceive(b *testing.B) {
+	logger := log.NewTMLogger(log.NewSyncWriter(os.Stdout)).With("module", "benchmark")
+	var options []log.Option
+	options = append(options, log.AllowInfoWith("module", "benchmark"))
+	logger = log.NewFilter(logger, options...)
+
+	memR := &Reactor{}
+	memR.Logger = logger
+
+	chID := byte(10)
+	var msg Message = &TxMessage{Tx: make([]byte, 512)}
+	var src p2p.Peer
+
+	b.Run("pool", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			memR.logReceive(src, chID, msg)
+		}
+	})
+
+	b.Run("logger", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			memR.Logger.Debug("Receive", "src", src, "chId", chID, "msg", msg)
+		}
+	})
+}
+
+func BenchmarkReactorLogCheckTxError(b *testing.B) {
+	logger := log.NewTMLogger(log.NewSyncWriter(os.Stdout)).With("module", "benchmark")
+	var options []log.Option
+	options = append(options, log.AllowErrorWith("module", "benchmark"))
+	logger = log.NewFilter(logger, options...)
+
+	memR := &Reactor{}
+	memR.Logger = logger
+	memR.mempool = &CListMempool{height: 123456}
+
+	var msg Message = &TxMessage{Tx: make([]byte, 512)}
+	tx := msg.(*TxMessage).Tx
+	err := errors.New("error")
+
+	b.Run("pool", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			memR.logCheckTxError(tx, memR.mempool.height, err)
+		}
+	})
+
+	b.Run("logger", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			memR.Logger.Info("Could not check tx", "tx", txIDStringer{tx, memR.mempool.height}, "err", err)
+		}
+	})
+}
+
+func TestDecodeMsg(t *testing.T) {
+	memR := NewReactor(cfg.TestMempoolConfig(), nil)
+	var originMsg, decMsg Message
+
+	originMsg = &FetchMessage{
+		MaxBytes: 2 << 20,
+		MaxGas:   -1,
+	}
+	decMsg, _ = memR.decodeMsg(memR.encodeMsg(originMsg))
+	require.Equal(t, originMsg, decMsg)
+
+	originMsg = &StxMessage{
+		Stx: []*SentryTx{{Tx: []byte("test"), From: "testFrom"}},
+	}
+	decMsg, _ = memR.decodeMsg(memR.encodeMsg(originMsg))
+	require.Equal(t, originMsg, decMsg)
+
+	originMsg = &TxsMessage{
+		Txs: []types.Tx{[]byte("testTx")},
+	}
+	decMsg, _ = memR.decodeMsg(memR.encodeMsg(originMsg))
+	require.Equal(t, originMsg, decMsg)
+
+	originMsg = &TxIndicesMessage{}
+	decMsg, _ = memR.decodeMsg(memR.encodeMsg(originMsg))
+	require.Equal(t, originMsg, decMsg)
+
+	originMsg = &TxIndicesMessage{
+		Indices: []uint32{666, 888},
+	}
+	decMsg, _ = memR.decodeMsg(memR.encodeMsg(originMsg))
+	require.Equal(t, originMsg, decMsg)
+
 }

@@ -81,8 +81,8 @@ func (memR *Reactor) sendTxs(index int) {
 			continue
 		}
 		raw, _ := hex.DecodeString(string(tx))
-		for memR.mempool.Size() > memR.config.Size*9/10 {
-			time.Sleep(time.Second)
+		for memR.mempool.isFull(len(raw), true) != nil {
+			time.Sleep(time.Second / 2)
 		}
 		var msg TxMessage
 		if err = cdc.UnmarshalBinaryBare(raw, &msg); err != nil {

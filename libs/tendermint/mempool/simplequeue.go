@@ -32,8 +32,8 @@ func (q *SimpleTxQueue) Insert(tx *mempoolTx) error {
 		3. insert tx map
 	*/
 	ele := q.txs.PushBack(tx)
-	ele.Address = tx.from
-	ele.Nonce = tx.realTx.GetNonce()
+	//ele.Address = tx.from
+	//ele.Nonce = tx.realTx.GetNonce()
 
 	q.txsMap.Store(txKey(ele.Value.(*mempoolTx).tx), ele)
 	return nil
@@ -41,6 +41,11 @@ func (q *SimpleTxQueue) Insert(tx *mempoolTx) error {
 
 func (q *SimpleTxQueue) Remove(element *clist.CElement) {
 	q.removeElement(element)
+}
+
+func (q *SimpleTxQueue) RemoveByKey(key [sha256.Size]byte) *clist.CElement {
+	return q.removeElementByKey(key)
+
 }
 
 func (q *SimpleTxQueue) Front() *clist.CElement {
@@ -78,6 +83,16 @@ func (q *SimpleTxQueue) removeElement(element *clist.CElement) {
 	tx := element.Value.(*mempoolTx).tx
 	txHash := txKey(tx)
 	q.txsMap.Delete(txHash)
+}
+
+func (q *SimpleTxQueue) removeElementByKey(key [32]byte) *clist.CElement {
+	if v, ok := q.txsMap.LoadAndDelete(key); ok {
+		element := v.(*clist.CElement)
+		q.txs.Remove(element)
+		element.DetachPrev()
+		return element
+	}
+	return nil
 }
 
 func (q *SimpleTxQueue) CleanItems(address string, nonce uint64) {}

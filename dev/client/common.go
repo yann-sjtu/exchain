@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/okex/exchain-ethereum-compatible/utils"
+	"sync/atomic"
 
 	"io/ioutil"
 	"log"
@@ -101,10 +102,15 @@ func writeContract(client *ethclient.Client,
 	name string,
 	args ...interface{}) error {
 	// 0. get the value of nonce, based on address
-	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
-	if err != nil {
-		log.Printf("failed to fetch the value of nonce from network: %+v", err)
-		return err
+	//nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
+	//if err != nil {
+	//	log.Printf("failed to fetch the value of nonce from network: %+v", err)
+	//	return err
+	//}
+	var replace bool
+	nonce := atomic.AddUint64(&counterNonce, 1)
+	if nonce%5 == 0 {
+		replace = true
 	}
 
 	// 0.5 get the gasPrice
@@ -141,11 +147,56 @@ func writeContract(client *ethclient.Client,
 		return err
 	}
 
+	hash, err := utils.Hash(signedTx)
+	if err != nil {
+		log.Printf("Hash tx err: %s", err)
+		return err
+	}
+	fmt.Println("tx hash:", hash.String())
+
 	// 3. send rawTx
 	err = client.SendTransaction(context.Background(), signedTx)
 	if err != nil {
 		log.Printf("%s", err)
 		return err
+	}
+
+	if replace {
+		// 0.5 get the gasPrice
+		gasPrice := big.NewInt(GasPrice + GasPrice/10 + 1)
+
+		data, err := contract.abi.Pack(name, args...)
+		if err != nil {
+			log.Printf("%s", err)
+			return err
+
+		}
+
+		if amount == nil {
+			amount = big.NewInt(0)
+		}
+		unsignedTx := types.NewTransaction(nonce, contract.addr, amount, GasLimit, gasPrice, data)
+
+		// 2. sign unsignedTx -> rawTx
+		signedTx, err := types.SignTx(unsignedTx, types.NewEIP155Signer(big.NewInt(ChainId)), privateKey)
+		if err != nil {
+			log.Printf("failed to sign the unsignedTx offline: %+v", err)
+			return err
+		}
+
+		hash, err := utils.Hash(signedTx)
+		if err != nil {
+			log.Printf("Hash tx err: %s", err)
+			return err
+		}
+		fmt.Println("replace tx hash:", hash.String())
+
+		// 3. send rawTx
+		err = client.SendTransaction(context.Background(), signedTx)
+		if err != nil {
+			log.Printf("%s", err)
+			return err
+		}
 	}
 
 	time.Sleep(sleep)
@@ -251,7 +302,7 @@ func deployContract(client *ethclient.Client, fromAddress common.Address,
 		log.Printf("failed to fetch the value of nonce from network: %+v", err)
 		return err
 	}
-
+	atomic.StoreUint64(&counterNonce, nonce)
 	//1. simulate unsignedTx as you want, fill out the parameters into a unsignedTx
 	unsignedTx, err := deployContractTx(nonce, contract)
 	if err != nil {

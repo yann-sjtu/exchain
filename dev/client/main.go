@@ -45,7 +45,7 @@ func main() {
 
 	for _, k := range privKey {
 		test := func(key string) {
-			testFunc(key, time.Millisecond*5000)
+			testFunc(key, time.Millisecond*60)
 		}
 		go writeRoutine(test, k)
 	}
@@ -59,6 +59,8 @@ func writeRoutine(test func(string), key string) {
 		sleep(3)
 	}
 }
+
+var counterNonce uint64
 
 func counterTest(privKey string, blockTime time.Duration) error {
 	var (
@@ -77,8 +79,8 @@ func counterTest(privKey string, blockTime time.Duration) error {
 	for err == nil {
 		err = writeContract(client, counterContract, senderAddress, privateKey, nil, blockTime, "add", big.NewInt(100))
 		uint256Output(client, counterContract, "getCounter")
-		err = writeContract(client, counterContract, senderAddress, privateKey, nil, blockTime, "subtract")
-		uint256Output(client, counterContract, "getCounter")
+		//err = writeContract(client, counterContract, senderAddress, privateKey, nil, blockTime, "subtract")
+		//uint256Output(client, counterContract, "getCounter")
 	}
 	return err
 }

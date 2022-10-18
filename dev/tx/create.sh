@@ -6,4 +6,4 @@
 # num:
 #   txs num per account
 
-go run main.go contract.go -type=1 -num=1000000
+go run main.go contract.go -type=1 -num=10000

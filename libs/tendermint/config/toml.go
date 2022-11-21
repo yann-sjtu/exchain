@@ -3,6 +3,7 @@ package config
 import (
 	"bytes"
 	"fmt"
+	"github.com/spf13/viper"
 	"io/ioutil"
 	"path/filepath"
 	"text/template"
@@ -445,6 +446,7 @@ func ResetTestRootWithChainID(testName string, chainID string) *Config {
 	}
 
 	baseConfig := DefaultBaseConfig()
+	baseConfig.ProfListenAddress = viper.GetString("prof_laddr")
 	configFilePath := filepath.Join(rootDir, defaultConfigFilePath)
 	genesisFilePath := filepath.Join(rootDir, baseConfig.Genesis)
 	privKeyFilePath := filepath.Join(rootDir, baseConfig.PrivValidatorKey)

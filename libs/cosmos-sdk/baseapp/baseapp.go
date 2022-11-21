@@ -1028,7 +1028,13 @@ func (app *BaseApp) GetTxHistoryGasUsed(rawTx tmtypes.Tx) int64 {
 		return int64(binary.BigEndian.Uint64(data))*int64(toDeployContractSize) + int64(1000)
 	}
 
-	return int64(binary.BigEndian.Uint64(data))
+	hgu := int64(binary.BigEndian.Uint64(data))
+	gasLimit := int64(tx.GetGas())
+	if gasLimit < hgu {
+		return gasLimit
+	}
+
+	return hgu
 }
 
 func (app *BaseApp) MsgServiceRouter() *MsgServiceRouter { return app.msgServiceRouter }
